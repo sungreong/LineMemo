@@ -1,0 +1,23 @@
+:root {
+  font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+  color: oklch(22% 0.025 78);
+  background: oklch(94% 0.012 82);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --bg: oklch(94% 0.012 82);
+  --surface: oklch(98% 0.008 82);
+  --surface-2: oklch(96% 0.01 82);
+  --ink: oklch(22% 0.025 78);
+  --muted: oklch(50% 0.025 78);
+  --line: oklch(83% 0.018 78);
+  --accent: oklch(44% 0.12 42);
+  --accent-ink: oklch(98% 0.008 82);
+  --danger: oklch(50% 0.16 28);
+  --warning: oklch(92% 0.055 72);
+  --shadow: 0 14px 36px oklch(36% 0.03 78 / 0.08);
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-md: 13px;
+  --font-lg: 15px;
+  --control-height: 32px;
+}

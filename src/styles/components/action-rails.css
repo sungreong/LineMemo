@@ -1,0 +1,40 @@
+.preview-actions {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+.table-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.table-action-head {
+  text-align: right;
+}
+
+.line-edit-actions {
+  align-self: center;
+}
+
+@media (max-width: 560px) {
+  .preview-actions,
+  .table-actions {
+    gap: 1px;
+  }
+
+  .table-action-head {
+    font-size: 0;
+  }
+}
+
+.dense .preview-actions {
+  gap: 1px;
+}

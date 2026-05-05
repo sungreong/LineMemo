@@ -1,0 +1,267 @@
+.tag-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  max-width: 100%;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 64%);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--surface), var(--accent) 6%);
+  color: color-mix(in oklch, var(--accent), var(--ink) 20%);
+  font-size: 12px;
+}
+
+.tag-preview-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 2px;
+  align-items: start;
+}
+
+.copy-main,
+.copy-line {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 72%);
+}
+
+.card-actions .icon-button,
+.preview-row .icon-button,
+.table-row .icon-button,
+.more-menu summary {
+  border-color: transparent;
+  background: transparent;
+  color: color-mix(in oklch, var(--muted), var(--ink) 12%);
+}
+
+.card-actions .icon-button:hover:not(:disabled),
+.preview-row .icon-button:hover:not(:disabled),
+.table-row .icon-button:hover:not(:disabled),
+.more-menu summary:hover {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 70%);
+  background: color-mix(in oklch, var(--surface-2), var(--accent) 4%);
+  color: var(--accent);
+}
+
+.card-actions .icon-button.copied,
+.preview-row .icon-button.copied,
+.table-row .icon-button.copied {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 52%);
+  background: color-mix(in oklch, var(--accent), var(--surface) 86%);
+  color: var(--accent);
+}
+
+.more-menu {
+  position: relative;
+}
+
+.more-menu summary {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.more-menu summary .icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
+}
+
+.more-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.more-menu div {
+  position: absolute;
+  top: 34px;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.more-menu button {
+  justify-content: start;
+  text-align: left;
+}
+
+.preview-list {
+  display: grid;
+  padding: 0 7px 6px;
+}
+
+.preview-row {
+  display: grid;
+  grid-template-columns: 18px minmax(74px, 132px) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 31px;
+  padding: 3px 5px;
+  border-radius: 6px;
+}
+.line-edit-row {
+  grid-template-columns: minmax(64px, 0.8fr) minmax(120px, 1.3fr) 92px auto auto auto auto;
+  padding: 6px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 68%);
+  background: color-mix(in oklch, var(--surface), var(--accent) 4%);
+}
+
+.preview-row.line-edit-row {
+  grid-template-columns: minmax(64px, 0.75fr) minmax(120px, 1.4fr) 90px auto auto auto auto;
+}
+
+.line-edit-row input,
+.line-edit-row select {
+  min-height: 28px;
+  padding: 5px 7px;
+}
+
+.line-edit-row .line-secret {
+  white-space: nowrap;
+}
+
+.preview-row:hover {
+  background: var(--surface-2);
+}
+
+.preview-row.selected {
+  background: color-mix(in oklch, var(--accent), var(--surface) 88%);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.preview-row input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.line-label {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-value {
+  overflow: hidden;
+  color: oklch(27% 0.025 78);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.secret .line-value {
+  color: var(--danger);
+}
+
+.tiny {
+  min-height: 24px;
+  padding: 0 7px;
+  font-size: 12px;
+}
+
+.tiny.icon-button {
+  width: 30px;
+  min-width: 30px;
+  padding: 0;
+}
+
+.preview-divider {
+  height: 10px;
+  margin: 2px 6px;
+  border-top: 1px solid color-mix(in oklch, var(--line), transparent 30%);
+}
+
+.empty-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.quick-line-form {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(72px, 0.38fr) auto auto;
+  gap: 6px;
+  padding: 0 12px 8px;
+}
+
+.quick-line-form input {
+  min-height: 30px;
+  background: oklch(99% 0.006 82);
+}
+
+.optional-label {
+  opacity: 0.72;
+}
+
+.optional-label:focus {
+  opacity: 1;
+}
+
+.secret-toggle {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 5px;
+  align-items: center;
+  min-height: 30px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.secret-toggle input {
+  width: auto;
+  margin: 0;
+}
+
+.card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px 8px;
+}
+
+.block-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.text-button {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  padding-inline: 0;
+}
+
+.panel {
+  position: sticky;
+  top: 76px;
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 90px);
+  overflow: auto;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}

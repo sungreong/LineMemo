@@ -1,0 +1,51 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12px;
+  background: oklch(20% 0.015 78 / 0.28);
+}
+
+.modal-sheet {
+  width: min(calc(100vw - 24px), 460px);
+  max-height: calc(100vh - 24px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 22px 70px oklch(15% 0.02 78 / 0.22);
+}
+
+.modal-sheet .panel {
+  position: static;
+  top: auto;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.modal-sheet .editor {
+  padding-bottom: 0;
+}
+
+.modal-sheet .sticky-save {
+  bottom: 0;
+  margin-inline: -14px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 560px) {
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .modal-sheet {
+    max-height: calc(100vh - 16px);
+  }
+}

@@ -1,0 +1,329 @@
+.conflict-backdrop {
+  z-index: 55;
+}
+
+.conflict-panel {
+  display: grid;
+  gap: 10px;
+  width: min(520px, 100%);
+}
+
+.conflict-list {
+  display: grid;
+  gap: 5px;
+}
+
+.conflict-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.65fr) minmax(84px, 0.8fr) minmax(64px, 0.55fr) minmax(100px, 1fr);
+  gap: 7px;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 7px;
+  text-align: left;
+}
+
+.conflict-row strong,
+.conflict-row span,
+.conflict-row code {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conflict-row code {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.conflict-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.editor-details {
+  display: grid;
+  gap: 8px;
+  padding: 0 8px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.editor-details summary {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.editor-details:not([open]) {
+  padding-bottom: 0;
+}
+
+.line-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.table-add-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.85fr) minmax(140px, 1.4fr) minmax(72px, 0.42fr) auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 7px;
+  border: 1px dashed color-mix(in oklch, var(--accent), var(--line) 62%);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--surface), var(--accent) 3%);
+}
+
+.table-add-collapsed {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 28px;
+}
+
+.table-add-collapsed button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-height: 26px;
+  color: var(--muted);
+}
+
+.table-add-row input,
+.table-add-row select {
+  min-height: 30px;
+  font-size: 13px;
+}
+
+.table-head,
+.table-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.8fr) minmax(64px, 0.52fr) minmax(68px, 0.52fr) minmax(0, 1.6fr) minmax(82px, auto);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 7px 10px;
+}
+
+.table-head {
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--surface-2), white 20%), var(--surface-2));
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.table-head button {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.table-row {
+  min-height: 34px;
+  border-bottom: 1px solid color-mix(in oklch, var(--line), transparent 45%);
+  background: color-mix(in oklch, var(--surface), transparent 0%);
+}
+
+.table-row:last-child {
+  border-bottom: 0;
+}
+
+.table-row:hover {
+  background: color-mix(in oklch, var(--surface-2), var(--accent) 2%);
+}
+
+.table-row .icon-button,
+.preview-row .icon-button,
+.card-actions .icon-button {
+  opacity: 0.58;
+}
+
+.table-row:hover .icon-button,
+.table-row:focus-within .icon-button,
+.preview-row:hover .icon-button,
+.preview-row:focus-within .icon-button,
+.card:hover .card-actions .icon-button,
+.card:focus-within .card-actions .icon-button {
+  opacity: 1;
+}
+
+.table-row strong {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.table-row strong,
+.table-row span,
+.table-row code,
+.table-row .tab-badge {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cell-edit-input {
+  min-width: 0;
+  min-height: 26px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.table-row .cell-edit-input {
+  height: 26px;
+  min-height: 26px;
+}
+
+.table-row select.cell-edit-input {
+  padding-right: 22px;
+}
+.table-line-edit-row {
+  align-items: start;
+}
+
+.line-edit-value-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(72px, 0.4fr) auto;
+  gap: 5px;
+  min-width: 0;
+}
+
+.line-edit-value-group input,
+.line-edit-value-group select {
+  min-width: 0;
+}
+.preview-row .cell-edit-input {
+  height: 25px;
+  min-height: 25px;
+}
+
+.table-row .tab-badge {
+  width: 100%;
+  justify-content: start;
+  min-height: 22px;
+  padding-inline: 6px;
+  text-align: left;
+}
+
+.table-row code {
+  color: oklch(27% 0.025 78);
+  font-size: 12px;
+}
+
+.table-row.secret code {
+  color: var(--danger);
+}
+
+.table-row.line-edit-row {
+  grid-template-columns: minmax(84px, 0.65fr) minmax(58px, 0.45fr) minmax(70px, 0.55fr) minmax(140px, 1.45fr) 86px auto auto auto auto;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 7px;
+  background: color-mix(in oklch, var(--surface), var(--accent) 4%);
+}
+
+.delete-line-button,
+.delete-card-button {
+  opacity: 0.42;
+}
+
+.delete-line-button:hover:not(:disabled),
+.delete-card-button:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--danger), var(--line) 55%);
+  background: color-mix(in oklch, var(--danger), var(--surface) 88%);
+  color: var(--danger);
+  opacity: 1;
+}
+
+.table-row.line-edit-row input,
+.table-row.line-edit-row select {
+  min-height: 28px;
+  padding: 4px 7px;
+  font-size: 12px;
+}
+
+.table-row.line-edit-row strong {
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.table-row.line-edit-row .tab-badge {
+  min-height: 22px;
+  font-size: 11px;
+}
+
+.table-row.line-edit-row .line-secret {
+  min-height: 26px;
+  font-size: 11px;
+}
+
+.table-row.line-edit-row .tiny {
+  min-height: 26px;
+  padding-inline: 6px;
+  font-size: 12px;
+}
+
+.line-editor-panel {
+  gap: 14px;
+}
+
+.line-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px;
+  gap: 10px;
+}
+
+.line-editor-value {
+  grid-column: 1 / -1;
+}
+
+.line-editor-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.line-editor-actions button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel form {
+  display: grid;
+  gap: 12px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}

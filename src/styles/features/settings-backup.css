@@ -1,0 +1,114 @@
+.settings-panel {
+  align-content: start;
+  gap: 8px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.settings-section h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--font-md);
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.settings-section label,
+.settings-section .check,
+.settings-section .panel-note,
+.path-box,
+.backup-button {
+  font-size: var(--font-sm);
+}
+
+.settings-section select,
+.settings-section input,
+.suffix-input,
+.backup-button {
+  min-height: var(--control-height);
+}
+
+.suffix-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.suffix-input input {
+  border: 0;
+  box-shadow: none;
+}
+
+.suffix-input span {
+  padding-inline: 8px;
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.path-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px dashed color-mix(in oklch, var(--accent), var(--line) 55%);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: var(--font-sm);
+  overflow-wrap: anywhere;
+}
+
+.path-box code {
+  grid-column: 1;
+  color: var(--ink);
+}
+
+.path-box .icon-button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 30px;
+  min-width: 30px;
+}
+
+.backup-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.backup-button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.backup-button:hover {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 45%);
+  color: var(--accent);
+}
+
+.file-button input {
+  display: none;
+}

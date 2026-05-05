@@ -1,0 +1,393 @@
+@media (max-width: 860px) {
+  .has-panel .content {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    position: static;
+    max-height: none;
+  }
+
+  .inline-card-composer {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .inline-card-composer [name="inlineTitle"],
+  .inline-card-composer [name="inlineTags"],
+  .composer-tags {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .workspace {
+    gap: 7px;
+    padding: 7px;
+  }
+
+  .tabs,
+  .tag-filters {
+    margin-inline: -1px;
+  }
+
+  .inline-card-composer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 6px;
+  }
+
+  .inline-card-composer [name="inlineText"] {
+    grid-column: 1;
+  }
+
+  .card-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    padding: 9px 10px 5px;
+  }
+
+  .card-actions {
+    justify-content: flex-end;
+  }
+
+  .preview-row {
+    grid-template-columns: 16px minmax(48px, 0.42fr) minmax(0, 1fr) auto;
+    gap: 5px;
+  }
+
+  .line-edit-row,
+  .preview-row.line-edit-row,
+  .table-row.line-edit-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .line-edit-row input,
+  .line-edit-row select,
+  .line-edit-row label,
+  .line-edit-row strong,
+  .line-edit-row .tab-badge {
+    grid-column: 1 / -1;
+  }
+
+  .line-edit-row button {
+    width: 100%;
+  }
+
+  .line-editor-grid,
+  .line-editor-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .table-head,
+  .table-row {
+    grid-template-columns: minmax(70px, 0.72fr) minmax(48px, 0.48fr) minmax(50px, 0.48fr) minmax(0, 1fr) minmax(66px, auto);
+    gap: 5px;
+    padding: 6px 7px;
+  }
+
+  .table-row strong,
+  .table-row span,
+  .table-row code {
+    font-size: 11px;
+  }
+
+  .table-row .tab-badge {
+    max-width: 62px;
+  }
+
+  .table-row.table-line-edit-row {
+    grid-template-columns: minmax(70px, 0.72fr) minmax(48px, 0.48fr) minmax(50px, 0.48fr) minmax(0, 1fr) minmax(78px, auto);
+  }
+
+  .table-line-edit-row strong,
+  .table-line-edit-row .tab-badge,
+  .table-line-edit-row > input,
+  .table-line-edit-row .line-edit-value-group,
+  .table-line-edit-row .table-actions {
+    grid-column: auto;
+  }
+
+  .line-edit-value-group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .line-edit-value-group input,
+  .line-edit-value-group select,
+  .line-edit-value-group label {
+    grid-column: auto;
+  }
+
+  .table-add-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .table-add-row select,
+  .table-add-row input[name="lineLabel"],
+  .table-add-row .secret-toggle {
+    grid-column: 1 / -1;
+  }
+
+  .panel {
+    padding: 10px;
+  }
+
+  .editor-top-grid,
+  .editor-import {
+    grid-template-columns: 1fr;
+  }
+
+  .edit-line-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .edit-line-index {
+    display: none;
+  }
+
+  .edit-line-controls {
+    justify-content: stretch;
+  }
+
+  .edit-line-controls .icon-button {
+    width: 100%;
+  }
+}
+
+.dense .workspace {
+  gap: 5px;
+  padding: 6px;
+}
+
+.dense .toolbar {
+  gap: 5px;
+  padding: 6px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.dense button {
+  min-height: 26px;
+  padding-inline: 7px;
+}
+
+.dense .icon-button {
+  width: 30px;
+  min-width: 30px;
+  padding-inline: 0;
+}
+
+.dense input,
+.dense select,
+.dense textarea {
+  padding: 6px 8px;
+}
+
+.dense .search {
+  min-height: 28px;
+}
+
+.dense .tabs,
+.dense .tag-filters {
+  gap: 3px;
+  padding-bottom: 3px;
+}
+
+.dense .tab {
+  min-height: 25px;
+  padding-inline: 8px;
+}
+
+.dense .tag-filter,
+.dense .tag-chip,
+.dense .tag-preview-chip,
+.dense .tab-badge {
+  min-height: 20px;
+  padding-inline: 6px;
+  font-size: 11px;
+}
+
+.dense .content,
+.dense .cards {
+  gap: 0;
+}
+
+.dense .list-meta {
+  margin: 0 2px 4px;
+}
+
+.dense .inline-card-composer {
+  gap: 4px;
+  padding: 6px;
+}
+
+.dense .inline-card-composer input {
+  min-height: 28px;
+}
+
+.dense .card-head {
+  gap: 5px;
+  padding: 7px 9px 3px;
+}
+
+.dense .card-title h2 {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.dense .card-meta,
+.dense .card-tags {
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.dense .card {
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: color-mix(in oklch, var(--surface), transparent 12%);
+}
+
+.dense .card:first-of-type {
+  border-top: 1px solid var(--line);
+}
+
+.dense .card-actions {
+  opacity: 0.72;
+}
+
+.dense .card:hover .card-actions,
+.dense .card:focus-within .card-actions {
+  opacity: 1;
+}
+
+.dense .collapse-toggle {
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.dense .preview-list {
+  padding: 0 6px 2px;
+}
+
+.dense .preview-row {
+  grid-template-columns: 16px minmax(50px, 104px) minmax(0, 1fr) auto;
+  gap: 5px;
+  min-height: 24px;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.dense .tiny {
+  min-height: 22px;
+  padding-inline: 5px;
+}
+
+.dense .tiny.icon-button {
+  width: 26px;
+  min-width: 26px;
+}
+
+.dense .line-label,
+.dense .line-value,
+.dense .table-row span,
+.dense .table-row code {
+  font-size: 11px;
+}
+
+.dense .line-label::before {
+  content: "⋮⋮";
+  margin-right: 5px;
+  color: color-mix(in oklch, var(--muted), transparent 25%);
+  letter-spacing: -2px;
+}
+
+.dense .quick-line-form {
+  grid-template-columns: minmax(110px, 1fr) minmax(58px, 0.34fr) auto auto;
+  gap: 4px;
+  padding: 2px 8px 6px;
+}
+
+.dense .quick-line-form input {
+  min-height: 26px;
+}
+
+.dense .quick-line-form .secret-toggle {
+  min-height: 26px;
+  font-size: 11px;
+}
+
+.dense .card-foot {
+  min-height: 24px;
+  padding: 0 8px 5px;
+}
+
+.dense .panel {
+  gap: 8px;
+  padding: 10px;
+}
+
+.dense .panel form {
+  gap: 8px;
+}
+
+.dense .line-table {
+  border-radius: 6px;
+}
+
+.dense .table-add-row {
+  gap: 4px;
+  padding: 5px;
+  border-radius: 6px;
+}
+
+.dense .table-add-collapsed {
+  min-height: 24px;
+}
+
+.dense .table-add-collapsed button {
+  min-height: 23px;
+  font-size: 11px;
+}
+
+.dense .table-add-row input,
+.dense .table-add-row select {
+  min-height: 26px;
+  padding-block: 4px;
+}
+
+.dense .table-head,
+.dense .table-row {
+  min-height: 27px;
+  gap: 6px;
+  padding: 4px 8px;
+}
+
+.dense .table-row strong {
+  font-size: 13px;
+}
+
+.dense .table-head {
+  font-size: 11px;
+}
+
+.dense .table-row .tab-badge {
+  min-height: 19px;
+}
+
+.dense .cell-edit-input {
+  height: 23px;
+  min-height: 23px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.dense .more-menu summary {
+  width: 28px;
+  height: 26px;
+}
+
+.dense .copy-main {
+  width: 28px;
+  min-width: 28px;
+}

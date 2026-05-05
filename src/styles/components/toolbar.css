@@ -1,0 +1,177 @@
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-areas: "brand search actions";
+  grid-template-columns: max-content minmax(160px, 1fr) max-content;
+  gap: 6px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--surface), transparent 2%);
+  box-shadow: var(--shadow);
+}
+
+.brand {
+  grid-area: brand;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 100px;
+  overflow: hidden;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.brand strong {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.brand span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.primary-action {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  max-width: 110px;
+  padding-inline: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.primary-action-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar .icon-button {
+  width: 34px;
+}
+
+.toolbar-actions {
+  grid-area: actions;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-self: end;
+  gap: 6px;
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.toolbar-actions > button {
+  flex: 0 0 auto;
+}
+
+.search {
+  grid-area: search;
+  min-width: 0;
+  min-height: 32px;
+  background: oklch(99% 0.006 82);
+}
+
+@media (max-width: 860px) {
+  .toolbar {
+    grid-template-columns: max-content minmax(120px, 1fr) max-content;
+  }
+
+  .brand {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    grid-template-areas:
+      "brand actions"
+      "search search";
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+
+  .toolbar-actions {
+    justify-self: end;
+    gap: 5px;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .toolbar-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .search {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .toolbar {
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .brand strong {
+    font-size: 15px;
+  }
+
+  .brand span {
+    font-size: 10px;
+  }
+
+  .toolbar button {
+    min-height: 28px;
+  }
+
+  .toolbar .primary-action {
+    min-width: 0;
+    max-width: 82px;
+    padding-inline: 8px;
+  }
+
+  .toolbar .icon-button {
+    width: 30px;
+    min-width: 30px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 500px) {
+  .brand span {
+    display: none;
+  }
+
+  .primary-action {
+    gap: 4px;
+  }
+
+  .primary-action-text {
+    font-size: 0;
+  }
+
+  .primary-action-text::after {
+    content: "입력";
+    font-size: 12px;
+  }
+
+  .toolbar-actions {
+    gap: 4px;
+  }
+
+  .toolbar .icon-button {
+    width: 28px;
+    min-width: 28px;
+  }
+}

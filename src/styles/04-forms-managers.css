@@ -1,0 +1,291 @@
+.panel-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tab-manager,
+.tag-manager {
+  display: grid;
+  gap: 6px;
+}
+
+.tab-stats-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tab-stats-summary strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.tab-edit-row,
+.tag-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+  min-height: 42px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.tab-edit-row span,
+.tag-edit-row .tag-chip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-edit-row small,
+.tag-edit-row small {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tag-edit-row .tag-chip {
+  justify-content: start;
+  width: 100%;
+  text-align: left;
+}
+
+.tag-edit-row div {
+  display: flex;
+  gap: 4px;
+}
+
+.manager-row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+}
+
+.manager-row-actions .icon-button {
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+}
+
+.manager-head-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.manager-head-actions .primary {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 30px;
+}
+
+.manager-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.manager-pager button {
+  min-width: 30px;
+  padding: 0 8px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.manager-pager .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.tab-edit-row div,
+.editor-actions,
+.edit-line-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.editor form {
+  gap: 8px;
+}
+
+.editor label {
+  gap: 4px;
+  font-size: 11px;
+}
+
+.editor input,
+.editor select,
+.editor textarea {
+  min-height: 30px;
+  padding: 6px 8px;
+}
+
+.editor-top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(128px, 0.85fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.editor-import {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: start;
+}
+
+.editor-import button {
+  min-height: 30px;
+  white-space: nowrap;
+}
+
+.editor-line-section {
+  display: grid;
+  gap: 6px;
+}
+
+.editor-line-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.editor-line-head strong {
+  font-size: 12px;
+}
+
+.editor-line-head button,
+.manager-head-actions .primary {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-lines {
+  display: grid;
+  gap: 4px;
+}
+
+.edit-line {
+  display: block;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+.edit-line-grid {
+  display: grid;
+  grid-template-columns: 20px minmax(72px, 0.45fr) minmax(130px, 1fr) 82px 34px auto;
+  gap: 6px;
+  align-items: center;
+  padding: 5px;
+}
+
+.edit-line-index {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.edit-line-value {
+  min-height: 30px;
+  max-height: 74px;
+  line-height: 1.35;
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.check input {
+  width: auto;
+}
+
+.secret-inline {
+  justify-content: center;
+  min-width: 0;
+}
+
+.secret-inline span {
+  display: none;
+}
+
+.edit-line-controls {
+  flex-wrap: nowrap;
+  justify-content: end;
+  gap: 2px;
+}
+
+.edit-line-controls .icon-button {
+  width: 26px;
+  min-width: 26px;
+  min-height: 28px;
+}
+
+.sticky-save {
+  position: sticky;
+  bottom: -14px;
+  padding: 10px 0 0;
+  background: linear-gradient(transparent, var(--surface) 30%);
+}
+
+.sticky-save button {
+  width: 100%;
+}
+.empty {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 28px;
+}
+
+.empty p {
+  color: var(--muted);
+}
+
+.toast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  z-index: 60;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 40%);
+  border-radius: 999px;
+  background: oklch(27% 0.035 78);
+  color: oklch(98% 0.008 82);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fatal {
+  margin: 24px;
+  padding: 18px;
+  border: 1px solid var(--danger);
+  background: var(--surface);
+  color: var(--danger);
+}
