@@ -47,6 +47,12 @@ describe("layout regression guards", () => {
     expect(settingsCss).toContain("font-size: var(--font-sm)");
   });
 
+  test("line detail editor keeps label and type on the same row", () => {
+    expect(responsiveCss).not.toContain(".line-editor-grid,\n  .line-editor-actions");
+    expect(responsiveCss).toContain(".line-editor-grid");
+    expect(responsiveCss).toContain("minmax(104px, 0.45fr)");
+  });
+
   test("source JS and CSS files stay under the 1000 line budget", () => {
     const srcDir = fileURLToPath(new URL("..", import.meta.url));
     const files = walkFiles(srcDir, (path) => [".css", ".js"].includes(extname(path)));

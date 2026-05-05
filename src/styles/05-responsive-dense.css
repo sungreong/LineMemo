@@ -72,16 +72,30 @@
     width: 100%;
   }
 
-  .line-editor-grid,
   .line-editor-actions {
     grid-template-columns: 1fr;
   }
 
+  .line-editor-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(104px, 0.45fr);
+    gap: 6px;
+  }
+
+  .line-history {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
   .table-head,
   .table-row {
-    grid-template-columns: minmax(70px, 0.72fr) minmax(48px, 0.48fr) minmax(50px, 0.48fr) minmax(0, 1fr) minmax(66px, auto);
+    grid-template-columns: minmax(70px, 0.72fr) minmax(50px, 0.48fr) minmax(0, 1fr) minmax(66px, auto);
     gap: 5px;
     padding: 6px 7px;
+  }
+
+  .line-table.with-tabs .table-head,
+  .line-table.with-tabs .table-row {
+    grid-template-columns: minmax(54px, 0.46fr) minmax(66px, 0.58fr) minmax(48px, 0.44fr) minmax(0, 1fr) minmax(66px, auto);
   }
 
   .table-row strong,
@@ -95,7 +109,7 @@
   }
 
   .table-row.table-line-edit-row {
-    grid-template-columns: minmax(70px, 0.72fr) minmax(48px, 0.48fr) minmax(50px, 0.48fr) minmax(0, 1fr) minmax(78px, auto);
+    grid-template-columns: minmax(70px, 0.72fr) minmax(48px, 0.48fr) minmax(0, 1fr) minmax(78px, auto);
   }
 
   .table-line-edit-row strong,
@@ -122,8 +136,71 @@
 
   .table-add-row select,
   .table-add-row input[name="lineLabel"],
-  .table-add-row .secret-toggle {
+  .table-add-row .secret-toggle,
+  .table-add-row.with-tabs select[name="cardId"] {
     grid-column: 1 / -1;
+  }
+
+  .table-add-actions {
+    grid-column: 1 / -1;
+  }
+
+  .table-add-footer {
+    padding: 5px 6px;
+  }
+
+  .table-add-trigger {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .manager-tools {
+    grid-template-columns: minmax(88px, 1fr) minmax(78px, 0.58fr) minmax(92px, 0.68fr);
+    gap: 4px;
+  }
+
+  .tag-manager-tools {
+    grid-template-columns: minmax(120px, 1fr) minmax(92px, 0.52fr);
+  }
+
+  .manager-tools input,
+  .manager-tools select {
+    min-height: 28px;
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .tab-edit-row,
+  .tag-edit-row {
+    grid-template-columns: minmax(78px, 1fr) minmax(82px, auto) auto;
+    gap: 4px;
+    min-height: 36px;
+    padding: 4px;
+  }
+
+  .tab-edit-row small,
+  .tag-edit-row small {
+    font-size: 11px;
+  }
+
+  .manager-row-actions {
+    gap: 2px;
+  }
+
+  .manager-row-actions .icon-button {
+    width: 26px;
+    min-width: 26px;
+    min-height: 26px;
+  }
+
+  .selection-bar {
+    justify-content: stretch;
+    border-radius: 10px;
+  }
+
+  .selection-bar strong,
+  .selection-bar button {
+    flex: 1 1 auto;
   }
 
   .panel {
@@ -337,16 +414,16 @@
 
 .dense .table-add-row {
   gap: 4px;
-  padding: 5px;
-  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
-.dense .table-add-collapsed {
+.dense .table-add-footer {
+  padding: 4px 6px;
+}
+
+.dense .table-add-trigger {
   min-height: 24px;
-}
-
-.dense .table-add-collapsed button {
-  min-height: 23px;
   font-size: 11px;
 }
 

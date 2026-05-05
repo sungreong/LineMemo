@@ -5,7 +5,7 @@ const paths = {
   copy: `<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>`,
   check: `<path d="M20 6 9 17l-5-5"/>`,
   rows: `<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>`,
-  compact: `<path d="M8 3v5H3"/><path d="M16 3v5h5"/><path d="M8 21v-5H3"/><path d="M16 21v-5h5"/><path d="M3 8l5-5"/><path d="M21 8l-5-5"/><path d="M3 16l5 5"/><path d="M21 16l-5 5"/>`,
+  compact: `<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/><path d="m8 3 4 4 4-4"/><path d="m8 21 4-4 4 4"/>`,
   cards: `<rect x="5" y="4" width="14" height="5" rx="1.5"/><rect x="5" y="15" width="14" height="5" rx="1.5"/><path d="M7 12h10"/>`,
   table: `<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16"/><path d="M10 5v14"/>`,
   folder: `<path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>`,

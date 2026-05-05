@@ -339,6 +339,9 @@ h2 {
 
 .tag-chip,
 .tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 23px;
   padding: 0 7px;
   border-color: color-mix(in oklch, var(--accent), var(--line) 65%);

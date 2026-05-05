@@ -5,8 +5,12 @@ import { icon } from "./ui/icons.js";
 import { escapeHtml } from "./ui/utils.js";
 import { cellKey } from "./ui/editableCell.js";
 import { createDuplicateActions } from "./actions/duplicates.js";
+import { bindManagerControls } from "./actions/managerControls.js";
 import { bindRootActions } from "./actions/rootEvents.js";
+import { createSelectionActions } from "./actions/selectionActions.js";
+import { createTagActions } from "./actions/tagActions.js";
 import { createUiActionHandler } from "./actions/uiActions.js";
+import { createViewActions } from "./actions/viewActions.js";
 import {
   ITEM_TYPES,
   allTags,
@@ -14,23 +18,25 @@ import {
   formatTags,
   inferType,
   makeCard,
+  mergeLineTimestamps,
   normalizeData,
-  normalizeTag,
   nowIso,
   parseLineParts,
-  parseSearchQuery,
   parseTags,
   parseLines,
-  searchCards,
+  stampLine,
   sortedItems,
   uid
 } from "./domain.js";
 import { exportDataJson, getDataFilePath, importDataFromJson, loadData, saveData } from "./storage.js";
+import { defaultTabId, syncActiveTabs } from "./state/tabs.js";
 
 const app = document.querySelector("#app");
 const state = {
   data: normalizeData(null),
   activeTabId: "inbox",
+  activeTabIds: ["inbox"],
+  lastRealTabId: "inbox",
   query: "",
   selected: new Set(),
   revealed: new Set(),
@@ -56,6 +62,13 @@ const state = {
   managerPages: {
     tabs: 1,
     tags: 1
+  },
+  managerFilters: {
+    tabQuery: "",
+    tabVisibility: "all",
+    tabSort: "order",
+    tagQuery: "",
+    tagSort: "name"
   }
 };
 
@@ -65,16 +78,27 @@ let renderTagPreview = () => "";
 let resolveDuplicatesBeforeAdd = () => false;
 let focusDuplicate = () => {};
 let commitDuplicatePending = () => {};
+let selectedItemsInView = () => [];
+let copySelectedInView = async () => {};
+let clearSelection = () => {};
+let setViewMode = () => {};
+let focusTableAdd = () => {};
+let selectManagerTag = () => {};
+let toggleTagQuery = () => {};
+let renameTag = () => {};
+let deleteTag = () => {};
 
 let saveTimer = null;
 let revealTimers = new Map();
 let toastTimer = null;
 let copyFeedbackTimer = null;
 let isComposingSearch = false;
+let searchRenderTimer = null;
 
 async function boot() {
   state.data = await loadData();
-  state.activeTabId = state.data.settings.rememberLastTab ? state.data.settings.lastTabId || "inbox" : "inbox";
+  const remembered = state.data.settings.rememberLastTab ? state.data.settings.lastTabId || "inbox" : "inbox";
+  syncActiveTabs(state, remembered, { single: true });
   state.dataPath = await getDataFilePath();
   render();
 }
@@ -95,6 +119,19 @@ function notify(message) {
     state.toast = "";
     render();
   }, 1400);
+}
+
+function scheduleSearchRender() {
+  clearTimeout(searchRenderTimer);
+  searchRenderTimer = setTimeout(() => {
+    searchRenderTimer = null;
+    render();
+    queueMicrotask(() => {
+      const search = document.querySelector("#search");
+      search?.focus();
+      search?.setSelectionRange?.(search.value.length, search.value.length);
+    });
+  }, 25);
 }
 
 async function copyText(text, feedbackKey = "") {
@@ -131,29 +168,19 @@ async function copyText(text, feedbackKey = "") {
   }
 }
 
-function setActiveTab(id) {
-  state.activeTabId = state.activeTabId === id && id !== "all" ? "all" : id;
+function setActiveTab(id, options = {}) {
+  syncActiveTabs(state, id, options);
   state.selected.clear();
+  if (options.closePanel) state.activePanel = null;
   if (state.data.settings.rememberLastTab) {
-    state.data.settings.lastTabId = state.activeTabId;
+    state.data.settings.lastTabId = state.activeTabId === "all" ? "all" : defaultTabId(state);
     scheduleSave();
   }
   render();
 }
 
-function composeSearchQuery(text, tags) {
-  return [String(text || "").trim(), ...tags.map((tag) => `#${tag}`)].filter(Boolean).join(" ");
-}
-
-function toggleTagQuery(tag) {
-  const normalized = normalizeTag(tag);
-  if (!normalized) return;
-  const parsed = parseSearchQuery(state.query);
-  const tags = parsed.tags.includes(normalized)
-    ? parsed.tags.filter((entry) => entry !== normalized)
-    : [...parsed.tags, normalized];
-  state.query = composeSearchQuery(parsed.text, tags);
-  render();
+function selectManagerTab(id) {
+  setActiveTab(id, { single: true, closePanel: true });
 }
 
 function openPanel(panel) {
@@ -193,9 +220,9 @@ function renderManagerPager(kind, total) {
   if (pageState.pageCount <= 1) return "";
   return `
     <div class="manager-pager">
-      <button type="button" data-action="manager-page" data-kind="${kind}" data-direction="-1" ${pageState.page <= 1 ? "disabled" : ""} title="이전 페이지" aria-label="이전 페이지">${icon("chevronLeft")}</button>
+      <button type="button" data-action="manager-page" data-kind="${kind}" data-total="${total}" data-direction="-1" ${pageState.page <= 1 ? "disabled" : ""} title="이전 페이지" aria-label="이전 페이지">${icon("chevronLeft")}</button>
       <span>${pageState.page} / ${pageState.pageCount}</span>
-      <button type="button" data-action="manager-page" data-kind="${kind}" data-direction="1" ${pageState.page >= pageState.pageCount ? "disabled" : ""} title="다음 페이지" aria-label="다음 페이지">${icon("chevronRight")}</button>
+      <button type="button" data-action="manager-page" data-kind="${kind}" data-total="${total}" data-direction="1" ${pageState.page >= pageState.pageCount ? "disabled" : ""} title="다음 페이지" aria-label="다음 페이지">${icon("chevronRight")}</button>
     </div>
   `;
 }
@@ -227,7 +254,7 @@ function deleteTab(id) {
     if (card.tabId === id) card.tabId = "inbox";
   });
   state.data.tabs = state.data.tabs.filter((entry) => entry.id !== id).map((entry, index) => ({ ...entry, order: index }));
-  state.activeTabId = "inbox";
+  syncActiveTabs(state, "inbox", { single: true });
   clampManagerPage("tabs", state.data.tabs.length);
   scheduleSave();
   render();
@@ -264,50 +291,12 @@ function tagStats() {
   });
 }
 
-function renameTag(oldTag) {
-  const next = prompt("태그 이름 변경", oldTag);
-  const newTag = parseTags(next)[0];
-  if (!newTag || newTag === oldTag) return;
-  state.data.cards.forEach((card) => {
-    const tags = parseTags(card.tags);
-    if (!tags.includes(oldTag)) return;
-    card.tags = parseTags(tags.map((tag) => (tag === oldTag ? newTag : tag)));
-    card.updatedAt = nowIso();
-  });
-  const parsedQuery = parseSearchQuery(state.query);
-  if (parsedQuery.tags.includes(oldTag)) {
-    state.query = composeSearchQuery(parsedQuery.text, parsedQuery.tags.map((tag) => (tag === oldTag ? newTag : tag)));
-  }
-  clampManagerPage("tags", tagStats().length);
-  scheduleSave();
-  notify("태그 변경됨");
-  render();
-}
-
-function deleteTag(tag) {
-  if (!confirm(`#${tag} 태그를 모든 카드에서 제거할까요?`)) return;
-  state.data.cards.forEach((card) => {
-    const tags = parseTags(card.tags);
-    if (!tags.includes(tag)) return;
-    card.tags = tags.filter((entry) => entry !== tag);
-    card.updatedAt = nowIso();
-  });
-  const parsedQuery = parseSearchQuery(state.query);
-  if (parsedQuery.tags.includes(tag)) {
-    state.query = composeSearchQuery(parsedQuery.text, parsedQuery.tags.filter((entry) => entry !== tag));
-  }
-  clampManagerPage("tags", tagStats().length);
-  scheduleSave();
-  notify("태그 삭제됨");
-  render();
-}
-
 function startNewCard() {
   state.editingCardId = "new";
   state.activePanel = "editor";
   state.editorDraft = {
     title: "",
-    tabId: state.activeTabId === "all" ? "inbox" : state.activeTabId,
+    tabId: defaultTabId(state),
     tags: "",
     description: "",
     quickValues: ""
@@ -349,14 +338,14 @@ function pasteToEditor(text) {
 
 function addEditorLine() {
   syncEditorDraft();
-  state.editorItems.push({
+  state.editorItems.push(stampLine({
     id: uid("line"),
     label: "",
     value: "",
     type: "text",
     secret: false,
     order: state.editorItems.length + 1
-  });
+  }));
   render();
 }
 
@@ -417,7 +406,10 @@ function saveEditor(form) {
     state.collapsedCards.delete(card.id);
   } else {
     const card = state.data.cards.find((entry) => entry.id === state.editingCardId);
-    if (card) Object.assign(card, payload, { updatedAt: nowIso() });
+    if (card) {
+      const time = nowIso();
+      Object.assign(card, payload, { items: mergeLineTimestamps(payload.items, card.items, time), updatedAt: time });
+    }
   }
   closeEditor(false);
   scheduleSave();
@@ -434,7 +426,7 @@ function quickPaste(form) {
   }
   const title = String(formData.get("quickTitle") || "").trim() || firstMeaningfulLine(items) || "빠른 메모";
   const tags = parseTags(formData.get("quickTags"));
-  const tabId = state.activeTabId === "all" ? "inbox" : state.activeTabId;
+  const tabId = defaultTabId(state);
   if (resolveDuplicatesBeforeAdd(items, { type: "quick-paste", payload: { title, tabId, description: "", tags, items } })) return;
   const card = makeCard({ title, tabId, description: "", tags, items });
   state.data.cards.unshift(card);
@@ -454,7 +446,7 @@ function createInlineCard(form) {
   }
   const title = String(formData.get("inlineTitle") || "").trim() || firstMeaningfulLine(items) || "빠른 메모";
   const tags = parseTags(formData.get("inlineTags"));
-  const tabId = state.activeTabId === "all" ? "inbox" : state.activeTabId;
+  const tabId = defaultTabId(state);
   if (resolveDuplicatesBeforeAdd(items, { type: "inline-card", payload: { title, tabId, description: "", tags, items } })) return;
   const card = makeCard({ title, tabId, description: "", tags, items });
   state.data.cards.unshift(card);
@@ -502,14 +494,14 @@ function quickAddLineFromForm(form) {
   const label = rawLabel || parsed.label;
   const value = rawLabel ? rawValue : parsed.value;
   const maxOrder = sortedItems(card.items).at(-1)?.order || 0;
-  const item = {
+  const item = stampLine({
     id: uid("line"),
     label,
     value,
     type: inferType(value),
     secret: Boolean(form.elements.lineSecret?.checked) || shouldInferSecret(label),
     order: maxOrder + 1
-  };
+  });
   if (resolveDuplicatesBeforeAdd([item], { type: "quick-line", cardId, item })) return;
   card.items.push(item);
   card.updatedAt = nowIso();
@@ -590,13 +582,16 @@ function saveCellEdit() {
   } else {
     const item = card.items.find((line) => line.id === lineId);
     if (!item) return;
+    const time = nowIso();
     if (field === "label") item.label = value;
     if (field === "value") {
       item.value = value;
       item.type = inferType(value);
     }
+    item.updatedAt = time;
+    card.updatedAt = time;
   }
-  card.updatedAt = nowIso();
+  if (field === "title" || field === "tabId") card.updatedAt = nowIso();
   state.editingCellKey = null;
   state.cellEditValue = "";
   scheduleSave();
@@ -630,13 +625,15 @@ function saveLineEdit() {
   const card = state.data.cards.find((entry) => entry.id === cardId);
   const item = card?.items.find((line) => line.id === lineId);
   if (!card || !item) return;
+  const time = nowIso();
   Object.assign(item, {
     label: draft.type === "divider" ? "" : String(draft.label || "").trim(),
     value: draft.type === "divider" ? "---" : String(draft.value || "").trim(),
     type: ITEM_TYPES.includes(draft.type) ? draft.type : "text",
-    secret: Boolean(draft.secret)
+    secret: Boolean(draft.secret),
+    updatedAt: time
   });
-  card.updatedAt = nowIso();
+  card.updatedAt = time;
   state.editingLineKey = null;
   state.lineEditDraft = null;
   if (state.activePanel === "line-editor") state.activePanel = null;
@@ -719,7 +716,7 @@ async function handleImport(file) {
   try {
     const text = await file.text();
     state.data = await importDataFromJson(text);
-    state.activeTabId = state.data.settings.lastTabId || "inbox";
+    syncActiveTabs(state, state.data.settings.lastTabId || "inbox", { single: true });
     state.selected.clear();
     notify("가져오기 완료");
     render();
@@ -743,23 +740,18 @@ function bindEvents() {
   const searchInput = document.querySelector("#search");
   searchInput?.addEventListener("compositionstart", () => {
     isComposingSearch = true;
+    clearTimeout(searchRenderTimer);
   });
   searchInput?.addEventListener("compositionend", (event) => {
     isComposingSearch = false;
     state.query = event.target.value;
-    render();
-    queueMicrotask(() => document.querySelector("#search")?.focus());
+    scheduleSearchRender();
   });
   searchInput?.addEventListener("input", (event) => {
     state.query = event.target.value;
-    if (isComposingSearch || event.isComposing) return;
-    render();
-    queueMicrotask(() => {
-      const search = document.querySelector("#search");
-      search?.focus();
-      const end = search?.value.length ?? 0;
-      search?.setSelectionRange(end, end);
-    });
+    const inputType = event.inputType || "";
+    if (isComposingSearch || event.isComposing || inputType.includes("Composition")) return;
+    scheduleSearchRender();
   });
 
   document.querySelector("#quick-form")?.addEventListener("submit", (event) => {
@@ -879,6 +871,8 @@ function bindEvents() {
 
   document.querySelector("#import-file")?.addEventListener("change", (event) => handleImport(event.target.files?.[0]));
 
+  bindManagerControls({ state, render });
+
   document.querySelectorAll("[data-action='select-line']").forEach((box) => {
     box.addEventListener("change", (event) => {
       toggleSelected(event.target.dataset.card, event.target.dataset.id, event.target.checked);
@@ -908,11 +902,10 @@ document.addEventListener("keydown", (event) => {
     else if (state.activePanel) openPanel(state.activePanel);
   }
   if (event.ctrlKey && event.key.toLowerCase() === "c") {
-    const visibleCards = searchCards(state.data, state.activeTabId, state.query);
-    const selected = visibleCards.flatMap(selectedItemsForCard);
+    const selected = selectedItemsInView();
     if (selected.length) {
       event.preventDefault();
-      copyText(copyTextForItems(selected), "selection");
+      copySelectedInView(false);
     }
   }
 });
@@ -934,6 +927,27 @@ document.addEventListener("keydown", (event) => {
   render: () => render()
 }));
 
+({ selectedItemsInView, copySelectedInView, clearSelection } = createSelectionActions({
+  state,
+  copyText,
+  selectedItemsForCard,
+  render: () => render()
+}));
+
+({ setViewMode, focusTableAdd } = createViewActions({
+  state,
+  render: () => render()
+}));
+
+({ selectManagerTag, toggleTagQuery, renameTag, deleteTag } = createTagActions({
+  state,
+  scheduleSave,
+  notify,
+  render: () => render(),
+  tagStats,
+  clampManagerPage
+}));
+
 const handleAction = createUiActionHandler({
   state,
   render: () => render(),
@@ -941,6 +955,8 @@ const handleAction = createUiActionHandler({
   tagStats,
   moveManagerPage,
   setActiveTab,
+  selectManagerTab,
+  selectManagerTag,
   moveTab,
   renameTab,
   deleteTab,
@@ -966,7 +982,11 @@ const handleAction = createUiActionHandler({
   focusDuplicate,
   commitDuplicatePending,
   selectedItemsForCard,
+  copySelectedInView,
+  clearSelection,
   copyText,
+  setViewMode,
+  focusTableAdd,
   handleExport
 });
 

@@ -10,7 +10,8 @@ import {
 } from "../domain.js";
 import { renderEditableCell as renderCell } from "./editableCell.js";
 import { icon } from "./icons.js";
-import { escapeAttr, escapeHtml } from "./utils.js";
+import { escapeAttr, escapeHtml, formatDateTime } from "./utils.js";
+import { activeTabFilter, defaultTabId, isAllTabsActive, isTabActive, selectedTabIds } from "../state/tabs.js";
 
 const REQUIRED_RENDERER_DEPS = {
   app: "object",
@@ -39,7 +40,7 @@ function copyIcon(key) {
 }
 
 function render() {
-  const cards = searchCards(state.data, state.activeTabId, state.query).sort((a, b) => {
+  const cards = searchCards(state.data, activeTabFilter(state), state.query).sort((a, b) => {
     if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
     return new Date(b.updatedAt) - new Date(a.updatedAt);
   });
@@ -57,8 +58,7 @@ function render() {
           <div class="toolbar-actions">
             <button type="button" class="primary primary-action" data-action="open-panel" data-panel="quick" title="빠른 입력" aria-label="빠른 입력">${icon("input")}<span class="primary-action-text">빠른 입력</span></button>
             <button type="button" class="icon-button" data-action="new-card" title="새 카드" aria-label="새 카드">${icon("plus")}</button>
-            <button type="button" class="icon-button ${state.denseMode ? "active-toggle" : ""}" data-action="toggle-density" title="${state.denseMode ? "일반 보기" : "밀집 보기"}" aria-label="${state.denseMode ? "일반 보기" : "밀집 보기"}">${icon("compact")}</button>
-            <button type="button" class="icon-button ${state.viewMode === "table" ? "active-toggle" : ""}" data-action="toggle-view" title="${state.viewMode === "table" ? "카드 보기" : "테이블 보기"}" aria-label="${state.viewMode === "table" ? "카드 보기" : "테이블 보기"}">${icon(state.viewMode === "table" ? "cards" : "table")}</button>
+            ${renderViewSwitch()}
             <button type="button" class="icon-button ${state.activePanel === "tabs" ? "active-toggle" : ""}" data-action="open-panel" data-panel="tabs" title="Tabs" aria-label="Tabs 열기">${icon("folder")}</button>
             <button type="button" class="icon-button ${state.activePanel === "tags" ? "active-toggle" : ""}" data-action="open-panel" data-panel="tags" title="Tags" aria-label="Tags 열기">${icon("tag")}</button>
             <button type="button" class="icon-button ${state.activePanel === "settings" ? "active-toggle" : ""}" data-action="open-panel" data-panel="settings" title="Settings" aria-label="Settings 열기">${icon("settings")}</button>
@@ -72,6 +72,7 @@ function render() {
             ${cards.length ? (state.viewMode === "table" ? renderTableView(cards) : cards.map(renderCard).join("")) : renderEmpty()}
           </div>
         </section>
+        ${renderSelectionBar(cards)}
         ${renderModalPanel()}
         ${renderDuplicateConflict()}
       </section>
@@ -81,7 +82,41 @@ function render() {
   bindEvents();
 }
 
+function renderViewSwitch() {
+  const mode = state.viewMode === "table" ? "table" : (state.denseMode ? "dense" : "cards");
+  const options = [
+    ["cards", "카드 보기", "cards"],
+    ["dense", "밀집 보기", "compact"],
+    ["table", "표 보기", "table"]
+  ];
+  return `
+    <div class="view-switch" role="group" aria-label="보기 방식">
+      ${options.map(([value, label, iconName]) => `
+        <button type="button" class="icon-button ${mode === value ? "active-toggle" : ""}" data-action="set-view" data-mode="${value}" title="${label}" aria-label="${label}" aria-pressed="${mode === value}">${icon(iconName)}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderSelectionBar(cards) {
+  const selected = selectedItemsInCards(cards);
+  if (!selected.length) return "";
+  return `
+    <div class="selection-bar" role="status">
+      <strong>${selected.length}줄 선택됨</strong>
+      <button type="button" class="primary" data-action="copy-selected-global">${icon("copy")} 값 복사</button>
+      <button type="button" data-action="copy-selected-global-labels">라벨 포함</button>
+      <button type="button" data-action="clear-selection">선택 해제</button>
+    </div>
+  `;
+}
+
+function selectedItemsInCards(cards) {
+  return cards.flatMap((card) => selectedItemsForCard(card));
+}
+
 function renderTableView(cards) {
+  const showTabColumn = isAllTabsActive(state) || selectedTabIds(state).length > 1;
   const rows = cards
     .flatMap((card) => sortedItems(card.items)
       .filter((item) => item.type !== "divider")
@@ -91,31 +126,39 @@ function renderTableView(cards) {
       return state.tableSortAsc ? result : -result;
     });
 
-  if (!rows.length) return `${renderTableQuickAdd(cards)}<section class="empty compact-empty"><h2>표시할 줄이 없습니다.</h2></section>`;
+  if (!rows.length) return `<section class="line-table ${showTabColumn ? "with-tabs" : "single-tab"}">${renderTableHead(showTabColumn)}${renderTableQuickAdd(cards, showTabColumn)}</section><section class="empty compact-empty"><h2>표시할 줄이 없습니다.</h2></section>`;
   return `
-    ${renderTableQuickAdd(cards)}
-    <section class="line-table">
-      <div class="table-head">
-        <button type="button" class="sort-button" data-action="toggle-table-sort" title="카드명 정렬">카드 ${icon(state.tableSortAsc ? "arrowUp" : "arrowDown")}</button>
-        <span>탭</span>
-        <span>라벨</span>
-        <span>값</span>
-        <span class="table-action-head">액션</span>
-      </div>
-      ${rows.map(({ card, item }) => renderTableRow(card, item)).join("")}
+    <section class="line-table ${showTabColumn ? "with-tabs" : "single-tab"}">
+      ${renderTableHead(showTabColumn)}
+      ${rows.map(({ card, item }) => renderTableRow(card, item, showTabColumn)).join("")}
+      ${renderTableQuickAdd(cards, showTabColumn)}
     </section>
   `;
 }
 
-function renderTableRow(card, item) {
-  const revealed = !item.secret || state.revealed.has(item.id);
+function renderTableHead(showTabColumn) {
   return `
-    <div class="table-row ${item.secret ? "secret" : ""}">
+    <div class="table-head">
+      ${showTabColumn ? "<span>탭</span>" : ""}
+      <button type="button" class="sort-button" data-action="toggle-table-sort" title="카드명 정렬">카드 ${icon(state.tableSortAsc ? "arrowUp" : "arrowDown")}</button>
+      <span>라벨</span>
+      <span>값</span>
+      <span class="table-action-head">액션</span>
+    </div>
+  `;
+}
+
+function renderTableRow(card, item, showTabColumn) {
+  const revealed = !item.secret || state.revealed.has(item.id);
+  const selected = state.selected.has(`${card.id}:${item.id}`);
+  return `
+    <div class="table-row ${item.secret ? "secret" : ""} ${selected ? "selected" : ""}">
+      ${showTabColumn ? renderEditableCell({ card, field: "tabId", className: "tab-badge", value: card.tabId, display: tabNameForCard(card) }) : ""}
       ${renderEditableCell({ card, field: "title", tag: "strong", value: card.title, display: card.title })}
-      ${renderEditableCell({ card, field: "tabId", className: "tab-badge", value: card.tabId, display: tabNameForCard(card) })}
       ${renderEditableCell({ card, item, field: "label", value: item.label || "", display: item.label || item.type })}
       ${renderEditableCell({ card, item, field: "value", tag: "code", value: item.value, display: revealed ? item.value : "********" })}
       <div class="table-actions">
+        <input type="checkbox" title="선택" data-action="select-line" data-card="${card.id}" data-id="${item.id}" ${selected ? "checked" : ""} />
         <button type="button" class="tiny icon-button" data-action="edit-line-detail" data-card="${card.id}" data-id="${item.id}" title="줄 상세 수정" aria-label="줄 상세 수정">${icon("pencil")}</button>
         <button type="button" class="tiny icon-button copy-line ${state.lastCopiedKey === `line:${card.id}:${item.id}` ? "copied" : ""}" data-action="copy-line" data-card="${card.id}" data-id="${item.id}" title="줄 복사" aria-label="줄 복사">${copyIcon(`line:${card.id}:${item.id}`)}</button>
         <button type="button" class="tiny icon-button delete-line-button" data-action="delete-line" data-card="${card.id}" data-id="${item.id}" title="줄 삭제" aria-label="줄 삭제">${icon("trash")}</button>
@@ -124,32 +167,39 @@ function renderTableRow(card, item) {
   `;
 }
 
-function renderTableQuickAdd(cards) {
-  const targetCards = cards.filter((card) => card.tabId === state.activeTabId || state.activeTabId === "all");
+function renderTableQuickAdd(cards, showTabColumn) {
+  const targetCards = cards;
   if (!targetCards.length) return "";
   if (!state.showTableAdd) {
-    return `<div class="table-add-collapsed"><button type="button" data-action="toggle-table-add">${icon("plus")} 행 추가</button></div>`;
+    return `
+      <div class="table-add-footer">
+        <button type="button" class="table-add-trigger" data-action="toggle-table-add" title="행 추가" aria-label="행 추가">${icon("plus")} 행 추가</button>
+      </div>
+    `;
   }
   return `
-    <form class="table-add-row" data-table-quick-add>
+    <form id="table-add-row" class="table-add-row ${showTabColumn ? "with-tabs" : "single-tab"}" data-table-quick-add>
       <select name="cardId" aria-label="카드 선택">
         ${targetCards.map((card) => `<option value="${card.id}">${escapeHtml(tabNameForCard(card))} · ${escapeHtml(card.title)}</option>`).join("")}
       </select>
-      <input name="lineValue" placeholder="값 붙여넣기 후 Enter" autocomplete="off" />
       <input class="optional-label" name="lineLabel" placeholder="라벨(선택)" autocomplete="off" />
-      <label class="secret-toggle"><input type="checkbox" name="lineSecret" /> secret</label>
-      <button class="primary icon-button" type="submit" title="줄 추가" aria-label="줄 추가">${icon("plus")}</button>
+      <input name="lineValue" placeholder="값 붙여넣기 후 Enter" autocomplete="off" />
+      <div class="table-add-actions">
+        <label class="secret-toggle"><input type="checkbox" name="lineSecret" /> secret</label>
+        <button class="primary icon-button" type="submit" title="줄 추가" aria-label="줄 추가">${icon("plus")}</button>
+        <button class="icon-button" type="button" data-action="toggle-table-add" title="행 추가 닫기" aria-label="행 추가 닫기">${icon("chevronDown")}</button>
+      </div>
     </form>
   `;
 }
 
 function renderInlineCardComposer() {
-  const tabName = state.data.tabs.find((tab) => tab.id === state.activeTabId)?.name || "Inbox";
+  const tabName = state.data.tabs.find((tab) => tab.id === defaultTabId(state))?.name || "Inbox";
   return `
     <form class="inline-card-composer" id="inline-card-form">
       <input name="inlineTitle" placeholder="새 카드 제목" autocomplete="off" />
       <input name="inlineTags" data-tag-input placeholder="태그 comma" autocomplete="off" />
-      <input name="inlineText" placeholder="${escapeAttr(state.activeTabId === "all" ? "Inbox" : tabName)}에 값 붙여넣기 후 Enter" autocomplete="off" />
+      <input name="inlineText" placeholder="${escapeAttr(tabName)}에 값 붙여넣기 후 Enter" autocomplete="off" />
       <button class="primary icon-button" type="submit" title="카드 추가" aria-label="카드 추가">+</button>
       <div class="tag-preview composer-tags" data-tag-preview></div>
     </form>
@@ -167,8 +217,8 @@ function renderWarning() {
 }
 
 function renderTab(tab) {
-  const active = tab.id === state.activeTabId ? "active" : "";
-  return `<button type="button" class="tab ${active}" data-action="tab" data-id="${tab.id}">${escapeHtml(tab.name)}</button>`;
+  const active = isTabActive(state, tab.id) ? "active" : "";
+  return `<button type="button" class="tab ${active}" data-action="tab" data-id="${tab.id}" aria-pressed="${active ? "true" : "false"}">${escapeHtml(tab.name)}</button>`;
 }
 
 function renderTagFilters() {
@@ -184,7 +234,6 @@ function renderTagFilters() {
 
 function renderCard(card) {
   const blocks = getBlocks(card.items);
-  const selected = selectedItemsForCard(card);
   const visibleItems = visiblePreviewItems(card);
   const isCollapsed = state.collapsedCards.has(card.id);
   const lineCount = sortedItems(card.items).filter((item) => item.type !== "divider").length;
@@ -217,11 +266,10 @@ function renderCard(card) {
           ${visibleItems.length ? visibleItems.map((item) => renderPreviewLine(card, item)).join("") : renderEmptyCardPreview(card)}
         </div>
         ${renderQuickLineForm(card)}
-        <footer class="card-foot ${selected.length ? "show" : ""}">
+        <footer class="card-foot">
           ${remaining > 0 ? `<button type="button" class="text-button" data-action="toggle-expand" data-id="${card.id}">${state.expandedCards.has(card.id) ? "접기" : `+ ${remaining}줄 펼치기`}</button>` : `<span></span>`}
           <div class="block-actions">
             ${blocks.length > 1 ? blocks.map((_, index) => `<button type="button" data-action="copy-block" data-card="${card.id}" data-index="${index}">블록 ${index + 1}</button>`).join("") : ""}
-            ${selected.length ? `<button type="button" data-action="copy-selected" data-id="${card.id}">선택 복사</button><button type="button" data-action="copy-selected-labels" data-id="${card.id}">라벨 포함</button>` : ""}
           </div>
         </footer>
       `}
@@ -379,7 +427,7 @@ function renderDuplicateConflict() {
 }
 
 function renderQuickPaste() {
-  const tabName = state.data.tabs.find((tab) => tab.id === state.activeTabId)?.name || "Inbox";
+  const tabName = state.data.tabs.find((tab) => tab.id === defaultTabId(state))?.name || "Inbox";
   return `
     <aside class="panel quick-panel">
       <form id="quick-form">
@@ -387,7 +435,7 @@ function renderQuickPaste() {
           <h2>빠른 입력</h2>
           <button type="button" data-action="open-panel" data-panel="quick">닫기</button>
         </header>
-        <p class="panel-note">${escapeHtml(state.activeTabId === "all" ? "Inbox" : tabName)} 탭에 저장됩니다.</p>
+        <p class="panel-note">${escapeHtml(tabName)} 탭에 저장됩니다.</p>
         <label>제목<input name="quickTitle" placeholder="비워두면 첫 줄로 제목 생성" /></label>
         <label>태그<input name="quickTags" data-tag-input placeholder="apikey, 비밀번호, prod" /></label>
         <div class="tag-preview" data-tag-preview></div>
@@ -405,6 +453,7 @@ function renderLineEditorModal() {
   const item = card?.items.find((line) => line.id === lineId);
   if (!card || !item) return "";
   const draft = state.lineEditDraft;
+  const lineUpdated = item.updatedAt ? (item.updatedAt === item.createdAt ? "아직 수정 없음" : formatDateTime(item.updatedAt)) : "기록 없음";
   return `
     <aside class="panel line-editor-panel">
       <header class="panel-head">
@@ -414,6 +463,12 @@ function renderLineEditorModal() {
         </div>
         <button type="button" data-action="cancel-line-edit">닫기</button>
       </header>
+      <dl class="line-history">
+        <div><dt>카드 생성</dt><dd>${formatDateTime(card.createdAt)}</dd></div>
+        <div><dt>카드 수정</dt><dd>${formatDateTime(card.updatedAt)}</dd></div>
+        <div><dt>줄 생성</dt><dd>${formatDateTime(item.createdAt)}</dd></div>
+        <div><dt>줄 수정</dt><dd>${lineUpdated}</dd></div>
+      </dl>
       <div class="line-editor-grid">
         <label>라벨<input data-line-edit-field="label" value="${escapeAttr(draft.label || "")}" placeholder="라벨" /></label>
         <label>타입<select data-line-edit-field="type">${ITEM_TYPES.map((type) => `<option value="${type}" ${type === draft.type ? "selected" : ""}>${type}</option>`).join("")}</select></label>
@@ -432,8 +487,10 @@ function renderLineEditorModal() {
 
 function renderTabManager() {
   const totalStats = tabStats("all");
-  const pageState = clampManagerPage("tabs", state.data.tabs.length);
-  const visibleTabs = state.data.tabs.slice(pageState.start, pageState.end);
+  const filters = managerFilters();
+  const entries = filteredTabEntries(filters);
+  const pageState = clampManagerPage("tabs", entries.length);
+  const visibleTabs = entries.slice(pageState.start, pageState.end);
   return `
     <aside class="panel">
       <header class="panel-head">
@@ -447,14 +504,34 @@ function renderTabManager() {
         <strong>전체</strong>
         <span>${totalStats.cards} cards · ${totalStats.items} lines</span>
       </div>
+      <div class="manager-tools">
+        <input data-manager-field="tabQuery" value="${escapeAttr(filters.tabQuery)}" placeholder="탭 검색" />
+        <select data-manager-field="tabVisibility" aria-label="탭 필터">
+          ${[
+            ["all", "전체"],
+            ["cards", "카드 있음"],
+            ["lines", "라인 있음"],
+            ["empty", "빈 탭"]
+          ].map(([value, label]) => `<option value="${value}" ${filters.tabVisibility === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+        <select data-manager-field="tabSort" aria-label="탭 정렬">
+          ${[
+            ["order", "기본 순서"],
+            ["updated", "최근 업데이트"],
+            ["cards", "카드 많은 순"],
+            ["lines", "라인 많은 순"],
+            ["name", "이름순"]
+          ].map(([value, label]) => `<option value="${value}" ${filters.tabSort === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </div>
       <div class="tab-manager">
-        ${visibleTabs.map((tab) => {
-          const stats = tabStats(tab.id);
+        ${visibleTabs.length ? visibleTabs.map(({ tab, stats }) => {
+          const active = isTabActive(state, tab.id);
           return `
-          <div class="tab-edit-row">
+          <div class="tab-edit-row ${active ? "active" : ""}" data-action="manager-select-tab" data-id="${tab.id}" role="button" tabindex="0" title="${escapeAttr(tab.name)} 탭 보기">
             <span>${escapeHtml(tab.name)}</span>
             <small>${stats.cards} cards · ${stats.items} lines</small>
-            <div class="manager-row-actions">
+            <div class="manager-row-actions" data-action="noop">
               <button type="button" class="icon-button" data-action="tab-up" data-id="${tab.id}" title="위로" aria-label="위로" ${tab.system ? "disabled" : ""}>${icon("arrowUp")}</button>
               <button type="button" class="icon-button" data-action="tab-down" data-id="${tab.id}" title="아래로" aria-label="아래로" ${tab.system ? "disabled" : ""}>${icon("arrowDown")}</button>
               <button type="button" class="icon-button" data-action="tab-rename" data-id="${tab.id}" title="이름 수정" aria-label="이름 수정" ${tab.system ? "disabled" : ""}>${icon("pencil")}</button>
@@ -462,11 +539,53 @@ function renderTabManager() {
             </div>
           </div>
         `;
-        }).join("")}
+        }).join("") : `<p class="panel-note">조건에 맞는 탭이 없습니다.</p>`}
       </div>
-      ${renderManagerPager("tabs", state.data.tabs.length)}
+      ${renderManagerPager("tabs", entries.length)}
     </aside>
   `;
+}
+
+function managerFilters() {
+  return {
+    tabQuery: "",
+    tabVisibility: "all",
+    tabSort: "order",
+    tagQuery: "",
+    tagSort: "name",
+    ...(state.managerFilters || {})
+  };
+}
+
+function filteredTabEntries(filters) {
+  const query = filters.tabQuery.trim().toLocaleLowerCase();
+  const entries = state.data.tabs
+    .map((tab) => ({ tab, stats: tabStats(tab.id), updatedAt: tabUpdatedAt(tab.id) }))
+    .filter(({ tab, stats }) => {
+      if (query && !tab.name.toLocaleLowerCase().includes(query)) return false;
+      if (filters.tabVisibility === "cards" && stats.cards <= 0) return false;
+      if (filters.tabVisibility === "lines" && stats.items <= 0) return false;
+      if (filters.tabVisibility === "empty" && (stats.cards > 0 || stats.items > 0)) return false;
+      return true;
+    });
+  return entries.sort((a, b) => sortManagerEntries(a, b, filters.tabSort, "tab"));
+}
+
+function tabUpdatedAt(tabId) {
+  const cards = tabId === "all" ? state.data.cards : state.data.cards.filter((card) => card.tabId === tabId);
+  return Math.max(0, ...cards.map((card) => Date.parse(card.updatedAt || card.createdAt || "") || 0));
+}
+
+function sortManagerEntries(a, b, sort, kind) {
+  if (sort === "updated") return b.updatedAt - a.updatedAt;
+  if (sort === "cards") return b.stats.cards - a.stats.cards || nameForEntry(a, kind).localeCompare(nameForEntry(b, kind), "ko");
+  if (sort === "lines") return b.stats.items - a.stats.items || nameForEntry(a, kind).localeCompare(nameForEntry(b, kind), "ko");
+  if (sort === "name") return nameForEntry(a, kind).localeCompare(nameForEntry(b, kind), "ko");
+  return kind === "tab" ? a.tab.order - b.tab.order : nameForEntry(a, kind).localeCompare(nameForEntry(b, kind), "ko");
+}
+
+function nameForEntry(entry, kind) {
+  return kind === "tab" ? entry.tab.name : entry.tag;
 }
 
 function tabStats(tabId) {
@@ -489,9 +608,12 @@ function tagStats() {
 }
 
 function renderTagManager() {
-  const stats = tagStats();
+  const filters = managerFilters();
+  const stats = filteredTagStats(filters);
   const pageState = clampManagerPage("tags", stats.length);
   const visibleStats = stats.slice(pageState.start, pageState.end);
+  const allStats = tagStats();
+  const selectedTags = parseSearchQuery(state.query).tags;
   const totalTaggedCards = new Set(state.data.cards.filter((card) => parseTags(card.tags).length).map((card) => card.id)).size;
   const totalLines = state.data.cards
     .filter((card) => parseTags(card.tags).length)
@@ -503,15 +625,25 @@ function renderTagManager() {
         <button type="button" data-action="open-panel" data-panel="tags">닫기</button>
       </header>
       <div class="tab-stats-summary">
-        <strong>태그 ${stats.length}</strong>
+        <strong>태그 ${allStats.length}</strong>
         <span>${totalTaggedCards} cards · ${totalLines} lines</span>
+      </div>
+      <div class="manager-tools tag-manager-tools">
+        <input data-manager-field="tagQuery" value="${escapeAttr(filters.tagQuery)}" placeholder="태그 검색" />
+        <select data-manager-field="tagSort" aria-label="태그 정렬">
+          ${[
+            ["name", "이름순"],
+            ["cards", "카드 많은 순"],
+            ["lines", "라인 많은 순"]
+          ].map(([value, label]) => `<option value="${value}" ${filters.tagSort === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
       </div>
       <div class="tag-manager">
         ${visibleStats.length ? visibleStats.map((entry) => `
-          <div class="tag-edit-row">
-            <button type="button" class="tag-chip" data-action="search-tag" data-tag="${escapeAttr(entry.tag)}">#${escapeHtml(entry.tag)}</button>
+          <div class="tag-edit-row ${selectedTags.includes(entry.tag) ? "active" : ""}" data-action="manager-select-tag" data-tag="${escapeAttr(entry.tag)}" role="button" tabindex="0" title="#${escapeAttr(entry.tag)} 검색">
+            <span class="tag-chip">#${escapeHtml(entry.tag)}</span>
             <small>${entry.cards} cards · ${entry.items} lines</small>
-            <div class="manager-row-actions">
+            <div class="manager-row-actions" data-action="noop">
               <button type="button" class="icon-button" data-action="tag-rename" data-tag="${escapeAttr(entry.tag)}" title="태그 이름 바꾸기" aria-label="태그 이름 바꾸기">${icon("pencil")}</button>
               <button type="button" class="icon-button danger" data-action="tag-delete" data-tag="${escapeAttr(entry.tag)}" title="태그 삭제" aria-label="태그 삭제">${icon("trash")}</button>
             </div>
@@ -523,11 +655,19 @@ function renderTagManager() {
   `;
 }
 
+function filteredTagStats(filters) {
+  const query = filters.tagQuery.trim().replace(/^#/, "").toLocaleLowerCase();
+  return tagStats()
+    .filter((entry) => !query || entry.tag.toLocaleLowerCase().includes(query))
+    .map((entry) => ({ ...entry, stats: { cards: entry.cards, items: entry.items } }))
+    .sort((a, b) => sortManagerEntries(a, b, filters.tagSort, "tag"));
+}
+
 function renderEditor() {
   if (!state.editingCardId) return "";
   const card = state.data.cards.find((entry) => entry.id === state.editingCardId) || {
     title: "",
-    tabId: state.activeTabId === "all" ? "inbox" : state.activeTabId,
+    tabId: defaultTabId(state),
     tags: [],
     description: ""
   };

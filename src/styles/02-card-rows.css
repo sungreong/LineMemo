@@ -241,6 +241,36 @@
   padding: 0 12px 8px;
 }
 
+.selection-bar {
+  position: sticky;
+  bottom: 8px;
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: center;
+  width: min(560px, calc(100vw - 20px));
+  padding: 7px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 48%);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--surface), var(--accent) 5%);
+  box-shadow: var(--shadow);
+}
+
+.selection-bar strong {
+  margin-right: auto;
+  padding-inline: 6px;
+  font-size: 12px;
+}
+
+.selection-bar button {
+  min-height: 27px;
+  padding-inline: 9px;
+  font-size: 12px;
+}
+
 .block-actions {
   display: flex;
   flex-wrap: wrap;

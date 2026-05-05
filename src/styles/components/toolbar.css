@@ -74,6 +74,29 @@
   flex: 0 0 auto;
 }
 
+.view-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 2px;
+  border: 1px solid color-mix(in oklch, var(--line), transparent 12%);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.view-switch .icon-button {
+  width: 30px;
+  min-width: 30px;
+  min-height: 28px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.view-switch .active-toggle {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 46%);
+  background: var(--surface);
+  color: var(--accent);
+}
+
 .search {
   grid-area: search;
   min-width: 0;

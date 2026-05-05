@@ -8,6 +8,8 @@ export function createUiActionHandler(deps) {
     tagStats,
     moveManagerPage,
     setActiveTab,
+    selectManagerTab,
+    selectManagerTag,
     moveTab,
     renameTab,
     deleteTab,
@@ -33,7 +35,11 @@ export function createUiActionHandler(deps) {
     focusDuplicate,
     commitDuplicatePending,
     selectedItemsForCard,
+    copySelectedInView,
+    clearSelection,
     copyText,
+    setViewMode,
+    focusTableAdd,
     handleExport
   } = deps;
 
@@ -58,11 +64,13 @@ export function createUiActionHandler(deps) {
       localStorage.setItem("linememo-dense-mode", String(state.denseMode));
       render();
     }
+    if (action === "set-view") setViewMode(element.dataset.mode);
     if (action === "toggle-view") {
       state.viewMode = state.viewMode === "table" ? "cards" : "table";
       localStorage.setItem("linememo-view-mode", state.viewMode);
       render();
     }
+    if (action === "focus-table-add") focusTableAdd();
     if (action === "toggle-table-add") {
       state.showTableAdd = !state.showTableAdd;
       render();
@@ -84,10 +92,12 @@ export function createUiActionHandler(deps) {
     if (action === "new-tab") createTab();
     if (action === "manager-page") {
       const kind = element.dataset.kind;
-      const total = kind === "tags" ? tagStats().length : state.data.tabs.length;
+      const total = Number(element.dataset.total || (kind === "tags" ? tagStats().length : state.data.tabs.length));
       moveManagerPage(kind, Number(element.dataset.direction || 0), total);
     }
     if (action === "tab") setActiveTab(id);
+    if (action === "manager-select-tab") selectManagerTab(id);
+    if (action === "manager-select-tag") selectManagerTag(element.dataset.tag);
     if (action === "tab-up") moveTab(id, -1);
     if (action === "tab-down") moveTab(id, 1);
     if (action === "tab-rename") renameTab(id);
@@ -119,6 +129,9 @@ export function createUiActionHandler(deps) {
     if (action === "copy-card-labels" && card) await copyText(copyTextForItems(card.items, true), `card:${card.id}`);
     if (action === "copy-selected" && card) await copyText(copyTextForItems(selectedItemsForCard(card)), `card:${card.id}`);
     if (action === "copy-selected-labels" && card) await copyText(copyTextForItems(selectedItemsForCard(card), true), `card:${card.id}`);
+    if (action === "copy-selected-global") await copySelectedInView(false);
+    if (action === "copy-selected-global-labels") await copySelectedInView(true);
+    if (action === "clear-selection") clearSelection();
     if (action === "copy-block" && card) {
       const block = getBlocks(card.items)[Number(element.dataset.index)];
       await copyText(copyTextForItems(block), `card:${card.id}`);

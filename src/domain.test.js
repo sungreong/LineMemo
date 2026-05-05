@@ -1,11 +1,25 @@
 import { describe, expect, test } from "bun:test";
-import { copyTextForItems, createEmptyData, getBlocks, parseLineParts, parseLines, parseSearchQuery, parseTags, searchCards } from "./domain.js";
+import {
+  copyTextForItems,
+  copyTextForOrderedItems,
+  createEmptyData,
+  getBlocks,
+  mergeLineTimestamps,
+  normalizeData,
+  normalizeSearchText,
+  parseLineParts,
+  parseLines,
+  parseSearchQuery,
+  parseTags,
+  searchCards
+} from "./domain.js";
 
 describe("parseLines", () => {
   test("splits non-empty lines and infers divider, url, command, and text", () => {
     const items = parseLines("hello\n\n---\nhttps://example.com\nssh user@host\nnpm run dev");
     expect(items.map((item) => item.type)).toEqual(["text", "divider", "url", "command", "command"]);
     expect(items[1].value).toBe("---");
+    expect(items.every((item) => item.createdAt && item.updatedAt)).toBe(true);
   });
 
   test("detects label and copy value from common one-line patterns", () => {
@@ -31,6 +45,32 @@ describe("copyTextForItems", () => {
     ];
     expect(copyTextForItems(items)).toBe("first\nsecond");
     expect(copyTextForItems(items, true)).toBe("A: first\nB: second");
+    expect(copyTextForOrderedItems(items)).toBe("second\nfirst");
+  });
+});
+
+describe("line timestamps", () => {
+  test("normalizes legacy lines without inventing dates", () => {
+    const data = normalizeData({
+      cards: [{ id: "card", items: [{ id: "line", value: "old", order: 1 }] }]
+    });
+    expect(data.cards[0].items[0].createdAt).toBe("");
+    expect(data.cards[0].items[0].updatedAt).toBe("");
+  });
+
+  test("updates only changed lines when merging editor items", () => {
+    const previous = [
+      { id: "a", label: "A", value: "same", type: "text", secret: false, order: 1, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "b", label: "B", value: "old", type: "text", secret: false, order: 2, createdAt: "", updatedAt: "" }
+    ];
+    const next = [
+      { ...previous[0] },
+      { ...previous[1], value: "new" }
+    ];
+    const merged = mergeLineTimestamps(next, previous, "2026-05-05T10:30:00.000Z");
+    expect(merged[0].updatedAt).toBe("2026-01-01T00:00:00.000Z");
+    expect(merged[1].createdAt).toBe("");
+    expect(merged[1].updatedAt).toBe("2026-05-05T10:30:00.000Z");
   });
 });
 
@@ -70,6 +110,7 @@ describe("searchCards", () => {
     ];
 
     expect(searchCards(data, "all", "ssh")).toHaveLength(1);
+    expect(searchCards(data, ["ssh", "api"], "")).toHaveLength(2);
     expect(searchCards(data, "api", "ssh")).toHaveLength(0);
     expect(searchCards(data, "api", "example")).toHaveLength(1);
     expect(searchCards(data, "all", "#apikey")).toHaveLength(1);
@@ -118,6 +159,28 @@ describe("searchCards", () => {
     expect(searchCards(data, "all", "#뉴스모니터링 ssh").map((card) => card.id)).toEqual(["card-news"]);
     expect(searchCards(data, "all", "#api ssh")).toHaveLength(0);
   });
+
+  test("normalizes Korean search text before matching", () => {
+    const data = createEmptyData();
+    data.cards = [
+      {
+        id: "card-passport",
+        tabId: "account",
+        title: "여권 정보",
+        description: "",
+        tags: ["신분증"],
+        favorite: false,
+        createdAt: "",
+        updatedAt: "",
+        items: [{ id: "line-passport", label: "번호", value: "M12345678", type: "text", secret: false, order: 1 }]
+      }
+    ];
+
+    expect(searchCards(data, "all", "여권").map((card) => card.id)).toEqual(["card-passport"]);
+    expect(searchCards(data, "all", "여권").map((card) => card.id)).toEqual(["card-passport"]);
+    expect(searchCards(data, "all", "ㅇㅕㄱㅝㄴ").map((card) => card.id)).toEqual(["card-passport"]);
+    expect(searchCards(data, "all", "  여권  ").map((card) => card.id)).toEqual(["card-passport"]);
+  });
 });
 
 describe("parseTags", () => {
@@ -130,5 +193,13 @@ describe("parseSearchQuery", () => {
   test("extracts multiple tags and preserves text", () => {
     expect(parseSearchQuery("#뉴스 #api ssh")).toEqual({ tags: ["뉴스", "api"], text: "ssh" });
     expect(parseSearchQuery("ssh #뉴스, #api #뉴스")).toEqual({ tags: ["뉴스", "api"], text: "ssh" });
+  });
+});
+
+describe("normalizeSearchText", () => {
+  test("composes Hangul variants into the same searchable form", () => {
+    expect(normalizeSearchText("여권")).toBe("여권");
+    expect(normalizeSearchText("ㅇㅕㄱㅝㄴ")).toBe("여권");
+    expect(normalizeSearchText("  Passport\u200b  ")).toBe("passport");
   });
 });

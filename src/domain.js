@@ -47,10 +47,9 @@ export function parseTags(input) {
 }
 
 export function normalizeTag(tag) {
-  return String(tag || "")
+  return normalizeSearchText(tag)
     .trim()
-    .replace(/^#+/, "")
-    .toLocaleLowerCase();
+    .replace(/^#+/, "");
 }
 
 export function formatTags(tags) {
@@ -72,6 +71,52 @@ export function parseSearchQuery(query) {
     tags: [...new Set(tags)],
     text
   };
+}
+
+const HANGUL_BASE = 0xac00;
+const JUNGSEONG_COUNT = 21;
+const JONGSEONG_COUNT = 28;
+const CHOSEONG = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+const JUNGSEONG = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"];
+const JONGSEONG = ["", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+
+const CHOSEONG_INDEX = new Map(CHOSEONG.map((char, index) => [char, index]));
+const JUNGSEONG_INDEX = new Map(JUNGSEONG.map((char, index) => [char, index]));
+const JONGSEONG_INDEX = new Map(JONGSEONG.map((char, index) => [char, index]));
+
+function composeCompatibilityHangul(input) {
+  const chars = [...String(input || "")];
+  let output = "";
+  for (let index = 0; index < chars.length; index += 1) {
+    const initial = CHOSEONG_INDEX.get(chars[index]);
+    const vowel = JUNGSEONG_INDEX.get(chars[index + 1]);
+    if (initial === undefined || vowel === undefined) {
+      output += chars[index];
+      continue;
+    }
+
+    let final = 0;
+    const finalCandidate = JONGSEONG_INDEX.get(chars[index + 2]);
+    const nextStartsSyllable = JUNGSEONG_INDEX.has(chars[index + 3]);
+    if (finalCandidate && !nextStartsSyllable) {
+      final = finalCandidate;
+      index += 1;
+    }
+
+    output += String.fromCharCode(HANGUL_BASE + ((initial * JUNGSEONG_COUNT) + vowel) * JONGSEONG_COUNT + final);
+    index += 1;
+  }
+  return output;
+}
+
+export function normalizeSearchText(value) {
+  return composeCompatibilityHangul(value)
+    .normalize("NFKC")
+    .normalize("NFC")
+    .toLocaleLowerCase()
+    .replace(/[\u200b-\u200d\ufeff]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function nowIso() {
@@ -132,7 +177,9 @@ function normalizeLine(item, index) {
     value: String(item.value || ""),
     type,
     secret: Boolean(item.secret),
-    order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1
+    order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1,
+    createdAt: String(item.createdAt || ""),
+    updatedAt: String(item.updatedAt || item.createdAt || "")
   };
 }
 
@@ -146,6 +193,7 @@ export function inferType(line) {
 }
 
 export function parseLines(text) {
+  const time = nowIso();
   return String(text || "")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -159,7 +207,9 @@ export function parseLines(text) {
         value: parsed.value,
         type,
         secret: false,
-        order: index + 1
+        order: index + 1,
+        createdAt: time,
+        updatedAt: time
       };
     });
 }
@@ -220,8 +270,32 @@ export function makeCard({ title, tabId, description, tags, items }) {
     favorite: false,
     createdAt: time,
     updatedAt: time,
-    items: items.map((item, index) => ({ ...item, order: index + 1 }))
+    items: items.map((item, index) => stampLine(item, time, index + 1))
   };
+}
+
+export function stampLine(item, time = nowIso(), order = item.order) {
+  return {
+    ...item,
+    order,
+    createdAt: item.createdAt || time,
+    updatedAt: item.updatedAt || item.createdAt || time
+  };
+}
+
+export function mergeLineTimestamps(nextItems, previousItems, time = nowIso()) {
+  const previousById = new Map((previousItems || []).map((item) => [item.id, item]));
+  return nextItems.map((item, index) => {
+    const previous = previousById.get(item.id);
+    if (!previous) return stampLine(item, time, index + 1);
+    const changed = ["label", "value", "type", "secret"].some((key) => item[key] !== previous[key]);
+    return {
+      ...item,
+      order: index + 1,
+      createdAt: previous.createdAt || item.createdAt || "",
+      updatedAt: changed ? time : (previous.updatedAt || item.updatedAt || previous.createdAt || "")
+    };
+  });
 }
 
 export function getBlocks(items) {
@@ -246,20 +320,30 @@ export function sortedItems(items) {
 export function copyTextForItems(items, includeLabels = false) {
   return sortedItems(items)
     .filter((item) => item.type !== "divider")
-    .map((item) => {
-      if (!includeLabels || !item.label.trim()) return item.value;
-      return `${item.label}: ${item.value}`;
-    })
+    .map((item) => lineCopyText(item, includeLabels))
     .join("\n");
+}
+
+export function copyTextForOrderedItems(items, includeLabels = false) {
+  return [...(items || [])]
+    .filter((item) => item.type !== "divider")
+    .map((item) => lineCopyText(item, includeLabels))
+    .join("\n");
+}
+
+function lineCopyText(item, includeLabels) {
+  if (!includeLabels || !String(item.label || "").trim()) return item.value;
+  return `${item.label}: ${item.value}`;
 }
 
 export function searchCards(data, activeTabId, query) {
   const parsed = parseSearchQuery(query);
-  const q = parsed.text.trim().toLocaleLowerCase();
+  const q = normalizeSearchText(parsed.text);
   const tagQueries = parsed.tags;
+  const activeTabs = normalizeActiveTabFilter(activeTabId);
   const tabsById = new Map(data.tabs.map((tab) => [tab.id, tab]));
   return data.cards.filter((card) => {
-    const inTab = activeTabId === "all" || card.tabId === activeTabId;
+    const inTab = !activeTabs.length || activeTabs.includes(card.tabId);
     if (!inTab) return false;
     if (tagQueries.length) {
       const cardTags = parseTags(card.tags);
@@ -267,15 +351,22 @@ export function searchCards(data, activeTabId, query) {
     }
     if (!q) return true;
     const tabName = tabsById.get(card.tabId)?.name || "";
-    const haystack = [
+    const rawHaystack = [
       card.title,
       card.description,
       tabName,
       ...parseTags(card.tags).map((tag) => `#${tag} ${tag}`),
       ...card.items.flatMap((item) => [item.label, item.value])
-    ].join("\n").toLocaleLowerCase();
+    ].join("\n");
+    const haystack = normalizeSearchText(rawHaystack);
     return haystack.includes(q);
   });
+}
+
+export function normalizeActiveTabFilter(activeTabId) {
+  if (Array.isArray(activeTabId)) return [...new Set(activeTabId.filter((id) => id && id !== "all"))];
+  if (activeTabId instanceof Set) return normalizeActiveTabFilter([...activeTabId]);
+  return activeTabId && activeTabId !== "all" ? [activeTabId] : [];
 }
 
 export function allTags(data) {

@@ -76,27 +76,19 @@
 
 .table-add-row {
   display: grid;
-  grid-template-columns: minmax(96px, 0.85fr) minmax(140px, 1.4fr) minmax(72px, 0.42fr) auto auto;
   gap: 6px;
   align-items: center;
-  padding: 7px;
-  border: 1px dashed color-mix(in oklch, var(--accent), var(--line) 62%);
-  border-radius: 8px;
+  padding: 7px 8px;
+  border-top: 1px dashed color-mix(in oklch, var(--accent), var(--line) 62%);
   background: color-mix(in oklch, var(--surface), var(--accent) 3%);
 }
 
-.table-add-collapsed {
-  display: flex;
-  justify-content: flex-end;
-  min-height: 28px;
+.table-add-row.single-tab {
+  grid-template-columns: minmax(82px, 0.75fr) minmax(68px, 0.52fr) minmax(0, 1.55fr) minmax(92px, auto);
 }
 
-.table-add-collapsed button {
-  display: inline-flex;
-  gap: 5px;
-  align-items: center;
-  min-height: 26px;
-  color: var(--muted);
+.table-add-row.with-tabs {
+  grid-template-columns: minmax(68px, 0.55fr) minmax(82px, 0.72fr) minmax(68px, 0.5fr) minmax(0, 1.55fr) minmax(92px, auto);
 }
 
 .table-add-row input,
@@ -105,14 +97,49 @@
   font-size: 13px;
 }
 
+.table-add-row.with-tabs select[name="cardId"] {
+  grid-column: 1 / span 2;
+}
+
+.table-add-actions {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: end;
+  min-width: 0;
+}
+
 .table-head,
 .table-row {
   display: grid;
-  grid-template-columns: minmax(88px, 0.8fr) minmax(64px, 0.52fr) minmax(68px, 0.52fr) minmax(0, 1.6fr) minmax(82px, auto);
+  grid-template-columns: minmax(82px, 0.75fr) minmax(68px, 0.52fr) minmax(0, 1.55fr) minmax(92px, auto);
   gap: 8px;
   align-items: center;
   min-width: 0;
   padding: 7px 10px;
+}
+
+.line-table.with-tabs .table-head,
+.line-table.with-tabs .table-row {
+  grid-template-columns: minmax(68px, 0.55fr) minmax(82px, 0.72fr) minmax(68px, 0.5fr) minmax(0, 1.55fr) minmax(92px, auto);
+}
+
+.table-add-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  border-top: 1px solid color-mix(in oklch, var(--line), transparent 35%);
+  background: color-mix(in oklch, var(--surface-2), transparent 18%);
+}
+
+.table-add-trigger {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-height: 26px;
+  padding-inline: 9px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .table-head {
@@ -147,6 +174,11 @@
 
 .table-row:hover {
   background: color-mix(in oklch, var(--surface-2), var(--accent) 2%);
+}
+
+.table-row.selected {
+  background: color-mix(in oklch, var(--accent), var(--surface) 90%);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .table-row .icon-button,
@@ -197,6 +229,12 @@
 .table-row .cell-edit-input {
   height: 26px;
   min-height: 26px;
+}
+
+.table-actions input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0 2px 0 0;
 }
 
 .table-row select.cell-edit-input {
@@ -289,13 +327,42 @@
 }
 
 .line-editor-panel {
-  gap: 14px;
+  gap: 10px;
+}
+
+.line-history {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.line-history div {
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.line-history dt {
+  color: var(--muted);
+  font-size: var(--font-xs);
+}
+
+.line-history dd {
+  overflow: hidden;
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .line-editor-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 130px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.42fr);
+  gap: 8px;
 }
 
 .line-editor-value {

@@ -27,10 +27,31 @@
   font-size: 14px;
 }
 
+.manager-tools {
+  display: grid;
+  grid-template-columns: minmax(112px, 1fr) minmax(92px, 0.42fr) minmax(112px, 0.5fr);
+  gap: 6px;
+}
+
+.manager-tools > * {
+  min-width: 0;
+}
+
+.manager-tools input,
+.manager-tools select {
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.tag-manager-tools {
+  grid-template-columns: minmax(0, 1fr) minmax(118px, 0.45fr);
+}
+
 .tab-edit-row,
 .tag-edit-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(82px, 1fr) auto auto;
   gap: 6px;
   align-items: center;
   min-height: 42px;
@@ -38,6 +59,18 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-2);
+}
+
+.tab-edit-row[data-action],
+.tag-edit-row[data-action] {
+  cursor: pointer;
+}
+
+.tab-edit-row.active,
+.tag-edit-row.active {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 38%);
+  background: color-mix(in oklch, var(--accent), var(--surface) 90%);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .tab-edit-row span,
@@ -58,6 +91,7 @@
   justify-content: start;
   width: 100%;
   text-align: left;
+  cursor: pointer;
 }
 
 .tag-edit-row div {

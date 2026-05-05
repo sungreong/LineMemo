@@ -1,4 +1,5 @@
-import { makeCard, nowIso, sortedItems } from "../domain.js";
+import { makeCard, nowIso, sortedItems, stampLine } from "../domain.js";
+import { syncActiveTabs } from "../state/tabs.js";
 
 export function createDuplicateActions(ctx) {
   const { state, scheduleSave, notify, closeEditor, render } = ctx;
@@ -40,7 +41,7 @@ export function createDuplicateActions(ctx) {
     const card = state.data.cards.find((entry) => entry.id === match.cardId);
     const item = card?.items.find((line) => line.id === match.lineId);
     if (!card || !item) return;
-    state.activeTabId = card.tabId;
+    syncActiveTabs(state, card.tabId, { single: true });
     state.query = item.value;
     state.expandedCards.add(card.id);
     state.collapsedCards.delete(card.id);
@@ -90,8 +91,9 @@ export function createDuplicateActions(ctx) {
     const card = state.data.cards.find((entry) => entry.id === cardId);
     if (!card) return;
     const maxOrder = sortedItems(card.items).at(-1)?.order || 0;
-    card.items.push(...items.map((item, index) => ({ ...item, order: maxOrder + index + 1 })));
-    card.updatedAt = nowIso();
+    const time = nowIso();
+    card.items.push(...items.map((item, index) => stampLine(item, time, maxOrder + index + 1)));
+    card.updatedAt = time;
     state.expandedCards.add(card.id);
     state.collapsedCards.delete(card.id);
     scheduleSave();
