@@ -2,17 +2,32 @@ import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 import "./styles.css";
 import { createRenderers } from "./ui/renderers.js";
 import { icon } from "./ui/icons.js";
+import { bindQuickPastePreview } from "./ui/quickPastePreview.js";
+import { applyAppearanceSettings } from "./ui/appearance.js";
 import { escapeHtml } from "./ui/utils.js";
 import { cellKey } from "./ui/editableCell.js";
+import { createBackupActions } from "./actions/backupActions.js";
+import { createCopyActions } from "./actions/copyActions.js";
+import { createDeleteConfirmActions } from "./actions/deleteConfirmActions.js";
+import { syncDesktopPreferencesForState } from "./actions/desktopIntegration.js";
 import { createDuplicateActions } from "./actions/duplicates.js";
+import { createLineMoveActions } from "./actions/lineMoveActions.js";
+import { bindLineContextMenuActions } from "./actions/lineContextMenuActions.js";
+import { bindLockForms, createLockActions } from "./actions/lockActions.js";
 import { bindManagerControls } from "./actions/managerControls.js";
+import { createQuickInputActions } from "./actions/quickInputActions.js";
+import { createQuickLineActions } from "./actions/quickLineActions.js";
+import { createSplitPatternActions } from "./actions/splitPatternActions.js";
 import { bindRootActions } from "./actions/rootEvents.js";
+import { bindKeyboardShortcuts } from "./actions/shortcuts.js";
 import { createSelectionActions } from "./actions/selectionActions.js";
 import { createTagActions } from "./actions/tagActions.js";
+import { bindTagSuggestionActions } from "./actions/tagSuggestionActions.js";
 import { createUiActionHandler } from "./actions/uiActions.js";
 import { createViewActions } from "./actions/viewActions.js";
 import {
   ITEM_TYPES,
+  DEFAULT_SPLIT_PATTERN,
   allTags,
   copyTextForItems,
   formatTags,
@@ -20,17 +35,18 @@ import {
   makeCard,
   mergeLineTimestamps,
   normalizeData,
+  normalizeLineValueInput,
   nowIso,
-  parseLineParts,
+  parsePasteItems,
   parseTags,
-  parseLines,
   stampLine,
   sortedItems,
   uid
 } from "./domain.js";
-import { exportDataJson, getDataFilePath, importDataFromJson, loadData, saveData } from "./storage.js";
+import { applyDesktopPreferences, getDataFilePath, loadData, saveData } from "./storage.js";
+import { clearQuickDraft, clearQuickLineDraft, clearTableAddDraft, createEmptyDrafts, syncDraftField } from "./state/drafts.js";
+import { bindEditorDraftPersistence, clearEditorDraftSnapshot, hasEditorDraftSnapshot, restoreEditorDraft } from "./state/editorDraftPersistence.js";
 import { defaultTabId, syncActiveTabs } from "./state/tabs.js";
-
 const app = document.querySelector("#app");
 const state = {
   data: normalizeData(null),
@@ -57,22 +73,22 @@ const state = {
   denseMode: localStorage.getItem("linememo-dense-mode") !== "false",
   viewMode: localStorage.getItem("linememo-view-mode") || "cards",
   showTableAdd: false,
+  activeQuickLineCardId: "",
   tableSortAsc: true,
   duplicateConflict: null,
-  managerPages: {
-    tabs: 1,
-    tags: 1
-  },
-  managerFilters: {
-    tabQuery: "",
-    tabVisibility: "all",
-    tabSort: "order",
-    tagQuery: "",
-    tagSort: "name"
-  }
+  deleteConfirm: null,
+  deleteConfirmMutedUntil: 0,
+  lineContextMenu: null,
+  movingLineKey: null,
+  lineMoveDraft: null,
+  desktopIntegration: { available: false, minimizeToTray: false, launchOnStartup: false, error: "" },
+  managerPages: { tabs: 1, tags: 1 },
+  managerFilters: { tabQuery: "", tabVisibility: "all", tabSort: "order", tagQuery: "", tagSort: "name" },
+  drafts: createEmptyDrafts(),
+  lock: { locked: false, reason: "", unlockError: "", lastActivityAt: Date.now() }
 };
 
-const MANAGER_PAGE_SIZE = 5;
+const MANAGER_PAGE_SIZE = 12;
 let render = () => {};
 let renderTagPreview = () => "";
 let resolveDuplicatesBeforeAdd = () => false;
@@ -81,25 +97,41 @@ let commitDuplicatePending = () => {};
 let selectedItemsInView = () => [];
 let copySelectedInView = async () => {};
 let clearSelection = () => {};
+let groupSelectedInView = () => false;
+let copyText = async () => {};
 let setViewMode = () => {};
 let focusTableAdd = () => {};
 let selectManagerTag = () => {};
 let toggleTagQuery = () => {};
 let renameTag = () => {};
 let deleteTag = () => {};
+let handleImport = async () => {};
+let handleExport = async () => {};
+let lockApp = () => false, unlockApp = async () => false, setLockPassword = async () => false;
+let changeLockPassword = async () => false, removeLockPassword = async () => false;
+let lockOnBoot = () => {}, touchLockActivity = () => {}, bindLockActivityTracking = () => {};
+let quickPaste = () => {}, quickAddLineFromForm = () => {}, copySplitPattern = async () => {}, insertSplitPattern = () => {}, startLineMove = () => {}, updateLineMoveTarget = () => {}, updateLineMoveQuery = () => {};
+let cancelLineMove = () => {}, confirmLineMove = () => {};
+let requestDeleteConfirm = (_message, onConfirm) => onConfirm?.(), cancelDeleteConfirm = () => {}, confirmPendingDelete = () => {};
 
-let saveTimer = null;
+let saveTimer = null, draftSaveTimer = null;
 let revealTimers = new Map();
 let toastTimer = null;
-let copyFeedbackTimer = null;
 let isComposingSearch = false;
 let searchRenderTimer = null;
 
+async function syncDesktopPreferences({ silent = true } = {}) {
+  return syncDesktopPreferencesForState({ state, applyDesktopPreferences, scheduleSave, render: () => render(), notify }, { silent });
+}
+
 async function boot() {
   state.data = await loadData();
+  applyAppearanceSettings(state.data.settings);
   const remembered = state.data.settings.rememberLastTab ? state.data.settings.lastTabId || "inbox" : "inbox";
   syncActiveTabs(state, remembered, { single: true });
   state.dataPath = await getDataFilePath();
+  await syncDesktopPreferences();
+  lockOnBoot();
   render();
 }
 
@@ -110,6 +142,8 @@ function scheduleSave() {
     render();
   }, 350);
 }
+
+function scheduleDraftSave(options = {}) { clearTimeout(draftSaveTimer); const persist = () => saveData(state.data).catch(() => {}); if (options.immediate) persist(); else draftSaveTimer = setTimeout(persist, 120); }
 
 function notify(message) {
   state.toast = message;
@@ -132,40 +166,6 @@ function scheduleSearchRender() {
       search?.setSelectionRange?.(search.value.length, search.value.length);
     });
   }, 25);
-}
-
-async function copyText(text, feedbackKey = "") {
-  const value = String(text || "");
-  if (!value) {
-    notify("복사할 값이 없습니다");
-    return;
-  }
-  try {
-    await writeText(value);
-  } catch {
-    await navigator.clipboard.writeText(value);
-  }
-  state.lastCopiedText = value;
-  state.lastCopiedKey = feedbackKey;
-  notify("복사됨");
-  clearTimeout(copyFeedbackTimer);
-  copyFeedbackTimer = setTimeout(() => {
-    state.lastCopiedKey = "";
-    render();
-  }, 1000);
-
-  const settings = state.data.settings;
-  if (settings.autoClearClipboard) {
-    window.setTimeout(async () => {
-      try {
-        const current = await readText();
-        if (current === value) await writeText("");
-      } catch {
-        const current = await navigator.clipboard.readText();
-        if (current === value) await navigator.clipboard.writeText("");
-      }
-    }, Number(settings.clipboardClearSeconds || 30) * 1000);
-  }
 }
 
 function setActiveTab(id, options = {}) {
@@ -249,15 +249,17 @@ function renameTab(id) {
 function deleteTab(id) {
   const tab = state.data.tabs.find((entry) => entry.id === id);
   if (!tab || tab.system) return;
-  if (!confirm(`'${tab.name}' 탭을 삭제하고 카드를 Inbox로 이동할까요?`)) return;
-  state.data.cards.forEach((card) => {
-    if (card.tabId === id) card.tabId = "inbox";
-  });
-  state.data.tabs = state.data.tabs.filter((entry) => entry.id !== id).map((entry, index) => ({ ...entry, order: index }));
-  syncActiveTabs(state, "inbox", { single: true });
-  clampManagerPage("tabs", state.data.tabs.length);
-  scheduleSave();
-  render();
+  const affectedCards = state.data.cards.filter((card) => card.tabId === id).length;
+  requestDeleteConfirm(`'${tab.name}' 탭을 삭제할까요?`, () => {
+    state.data.cards.forEach((card) => {
+      if (card.tabId === id) card.tabId = "inbox";
+    });
+    state.data.tabs = state.data.tabs.filter((entry) => entry.id !== id).map((entry, index) => ({ ...entry, order: index }));
+    syncActiveTabs(state, "inbox", { single: true });
+    clampManagerPage("tabs", state.data.tabs.length);
+    scheduleSave();
+    render();
+  }, { detail: `${affectedCards}개 카드가 Inbox로 이동됩니다.` });
 }
 
 function moveTab(id, direction) {
@@ -292,18 +294,14 @@ function tagStats() {
 }
 
 function startNewCard() {
-  state.editingCardId = "new";
-  state.activePanel = "editor";
-  state.editorDraft = {
-    title: "",
-    tabId: defaultTabId(state),
-    tags: "",
-    description: "",
-    quickValues: ""
-  };
-  state.editorItems = [];
-  render();
-  queueMicrotask(() => document.querySelector("#card-title")?.focus());
+  if (hasEditorDraftSnapshot(state)) {
+    const loadDraft = confirm("작성 중이던 카드 초안이 있습니다.\n불러올까요?\n\n취소하면 이전 초안을 지우고 새 카드로 시작합니다.");
+    if (loadDraft && restoreEditorDraft(state)) { render(); queueMicrotask(() => document.querySelector("#card-title")?.focus()); return; }
+    clearEditorDraftSnapshot(state); scheduleDraftSave({ immediate: true });
+  }
+  state.editingCardId = "new"; state.activePanel = "editor";
+  state.editorDraft = { title: "", tabId: defaultTabId(state), tags: "", description: "", quickValues: "", quickSplitMode: "line", quickSplitPattern: DEFAULT_SPLIT_PATTERN };
+  state.editorItems = []; render(); queueMicrotask(() => document.querySelector("#card-title")?.focus());
 }
 
 function startEditCard(cardId) {
@@ -316,13 +314,17 @@ function startEditCard(cardId) {
     tabId: card.tabId,
     tags: formatTags(card.tags),
     description: card.description,
-    quickValues: ""
+    quickValues: "",
+    quickSplitMode: "line",
+    quickSplitPattern: DEFAULT_SPLIT_PATTERN
   };
   state.editorItems = sortedItems(card.items).map((item) => ({ ...item }));
   render();
 }
 
 function closeEditor(shouldRender = true) {
+  clearEditorDraftSnapshot(state);
+  scheduleDraftSave({ immediate: true });
   state.editingCardId = null;
   state.editorDraft = null;
   state.editorItems = [];
@@ -332,7 +334,10 @@ function closeEditor(shouldRender = true) {
 
 function pasteToEditor(text) {
   syncEditorDraft();
-  state.editorItems = parseLines(text);
+  state.editorItems = parsePasteItems(text, {
+    splitMode: state.editorDraft?.quickSplitMode,
+    splitPattern: state.editorDraft?.quickSplitPattern
+  });
   render();
 }
 
@@ -355,8 +360,10 @@ function updateEditorLine(id, patch) {
 
 function deleteEditorLine(id) {
   syncEditorDraft();
-  state.editorItems = state.editorItems.filter((item) => item.id !== id).map((item, index) => ({ ...item, order: index + 1 }));
-  render();
+  requestDeleteConfirm("이 줄을 삭제할까요?", () => {
+    state.editorItems = state.editorItems.filter((item) => item.id !== id).map((item, index) => ({ ...item, order: index + 1 }));
+    render();
+  });
 }
 
 function moveEditorLine(id, direction) {
@@ -378,14 +385,20 @@ function syncEditorDraft() {
     tabId: String(formData.get("tabId") || "inbox"),
     tags: String(formData.get("tags") || ""),
     description: String(formData.get("description") || ""),
-    quickValues: String(formData.get("quickValues") || "")
+    quickValues: String(formData.get("quickValues") || ""),
+    quickSplitMode: String(formData.get("quickSplitMode") || "line"),
+    quickSplitPattern: String(formData.get("quickSplitPattern") || DEFAULT_SPLIT_PATTERN)
   };
 }
 
 function saveEditor(form) {
+  syncEditorDraft();
   const formData = new FormData(form);
   const quickValues = String(formData.get("quickValues") || "");
-  const quickItems = parseLines(quickValues);
+  const quickItems = parsePasteItems(quickValues, {
+    splitMode: formData.get("quickSplitMode"),
+    splitPattern: formData.get("quickSplitPattern")
+  });
   const items = state.editorItems
     .map((item, index) => ({ ...item, order: index + 1, value: item.type === "divider" ? "---" : item.value }))
     .filter((item) => item.type === "divider" || item.value.trim() || item.label.trim());
@@ -416,104 +429,11 @@ function saveEditor(form) {
   notify("저장됨");
 }
 
-function quickPaste(form) {
-  const formData = new FormData(form);
-  const raw = String(formData.get("quickText") || "");
-  const items = parseLines(raw);
-  if (!items.length) {
-    notify("붙여넣을 줄이 없습니다");
-    return;
-  }
-  const title = String(formData.get("quickTitle") || "").trim() || firstMeaningfulLine(items) || "빠른 메모";
-  const tags = parseTags(formData.get("quickTags"));
-  const tabId = defaultTabId(state);
-  if (resolveDuplicatesBeforeAdd(items, { type: "quick-paste", payload: { title, tabId, description: "", tags, items } })) return;
-  const card = makeCard({ title, tabId, description: "", tags, items });
-  state.data.cards.unshift(card);
-  state.collapsedCards.delete(card.id);
-  state.activePanel = null;
-  scheduleSave();
-  notify("카드 생성됨");
-}
-
-function createInlineCard(form) {
-  const formData = new FormData(form);
-  const raw = String(formData.get("inlineText") || "");
-  const items = parseLines(raw);
-  if (!items.length) {
-    notify("카드에 넣을 값이 없습니다");
-    return;
-  }
-  const title = String(formData.get("inlineTitle") || "").trim() || firstMeaningfulLine(items) || "빠른 메모";
-  const tags = parseTags(formData.get("inlineTags"));
-  const tabId = defaultTabId(state);
-  if (resolveDuplicatesBeforeAdd(items, { type: "inline-card", payload: { title, tabId, description: "", tags, items } })) return;
-  const card = makeCard({ title, tabId, description: "", tags, items });
-  state.data.cards.unshift(card);
-  state.expandedCards.add(card.id);
-  state.collapsedCards.delete(card.id);
-  form.reset();
-  state.showTableAdd = false;
-  scheduleSave();
-  notify("카드 추가됨");
-}
-
-function quickAddLines(cardId, raw) {
-  const card = state.data.cards.find((entry) => entry.id === cardId);
-  if (!card) return;
-  const items = parseLines(raw);
-  if (!items.length) {
-    notify("추가할 값이 없습니다");
-    return;
-  }
-  if (resolveDuplicatesBeforeAdd(items, { type: "quick-lines", cardId, items })) return;
-  const maxOrder = sortedItems(card.items).at(-1)?.order || 0;
-  card.items.push(...items.map((item, index) => ({ ...item, order: maxOrder + index + 1 })));
-  card.updatedAt = nowIso();
-  state.expandedCards.add(card.id);
-  state.collapsedCards.delete(card.id);
-  scheduleSave();
-  notify(items.length > 1 ? `${items.length}줄 추가됨` : "줄 추가됨");
-}
-
-function quickAddLineFromForm(form) {
-  const cardId = form.dataset.card || form.elements.cardId?.value;
-  const card = state.data.cards.find((entry) => entry.id === cardId);
-  if (!card) {
-    notify("카드를 선택하세요");
-    return;
-  }
-  const rawLabel = String(form.elements.lineLabel?.value || "").trim();
-  const rawValue = String(form.elements.lineValue?.value || "").trim();
-  if (!rawValue) {
-    notify("추가할 값을 입력하세요");
-    return;
-  }
-
-  const parsed = parseLineParts(rawValue);
-  const label = rawLabel || parsed.label;
-  const value = rawLabel ? rawValue : parsed.value;
-  const maxOrder = sortedItems(card.items).at(-1)?.order || 0;
-  const item = stampLine({
-    id: uid("line"),
-    label,
-    value,
-    type: inferType(value),
-    secret: Boolean(form.elements.lineSecret?.checked) || shouldInferSecret(label),
-    order: maxOrder + 1
-  });
-  if (resolveDuplicatesBeforeAdd([item], { type: "quick-line", cardId, item })) return;
-  card.items.push(item);
-  card.updatedAt = nowIso();
-  state.expandedCards.add(card.id);
-  state.collapsedCards.delete(card.id);
-  form.reset();
-  scheduleSave();
-  notify("줄 추가됨");
-}
-
-function shouldInferSecret(label) {
-  return /(비밀번호|패스워드|암호|password|passwd|secret|token|api[-_ ]?key|apikey|pw)/i.test(String(label || ""));
+function clearDraftForPending(pending) {
+  if (pending?.type === "quick-paste") clearQuickDraft(state);
+  if (pending?.type === "quick-lines") clearQuickDraft(state);
+  if (pending?.type === "quick-line" && pending.draftKind === "table") clearTableAddDraft(state, pending.draftCardId);
+  if (pending?.type === "quick-line" && pending.draftKind === "quickLine") clearQuickLineDraft(state, pending.draftCardId);
 }
 
 function firstMeaningfulLine(items) {
@@ -529,6 +449,7 @@ function startLineEdit(cardId, lineId) {
   state.lineEditDraft = {
     label: item.label,
     value: item.value,
+    group: item.group || "",
     type: item.type,
     secret: item.secret
   };
@@ -569,7 +490,8 @@ function saveCellEdit() {
   const [cardId, lineId, field] = state.editingCellKey.split("|");
   const card = state.data.cards.find((entry) => entry.id === cardId);
   if (!card) return;
-  const value = String(state.cellEditValue || "").trim();
+  const rawValue = normalizeLineValueInput(state.cellEditValue);
+  const value = rawValue.trim();
   if ((field === "title" || field === "value") && !value) {
     notify(field === "title" ? "제목을 입력하세요" : "값을 입력하세요");
     return;
@@ -585,8 +507,8 @@ function saveCellEdit() {
     const time = nowIso();
     if (field === "label") item.label = value;
     if (field === "value") {
-      item.value = value;
-      item.type = inferType(value);
+      item.value = rawValue;
+      item.type = inferType(rawValue);
     }
     item.updatedAt = time;
     card.updatedAt = time;
@@ -618,7 +540,8 @@ function saveLineEdit() {
   if (!state.editingLineKey || !state.lineEditDraft) return;
   const [cardId, lineId] = state.editingLineKey.split(":");
   const draft = { ...state.lineEditDraft };
-  if (draft.type !== "divider" && !String(draft.value || "").trim()) {
+  const draftValue = normalizeLineValueInput(draft.value);
+  if (draft.type !== "divider" && !draftValue.trim()) {
     notify("값을 입력하세요");
     return;
   }
@@ -628,7 +551,8 @@ function saveLineEdit() {
   const time = nowIso();
   Object.assign(item, {
     label: draft.type === "divider" ? "" : String(draft.label || "").trim(),
-    value: draft.type === "divider" ? "---" : String(draft.value || "").trim(),
+    value: draft.type === "divider" ? "---" : draftValue,
+    group: draft.type === "divider" ? "" : String(draft.group || "").trim(),
     type: ITEM_TYPES.includes(draft.type) ? draft.type : "text",
     secret: Boolean(draft.secret),
     updatedAt: time
@@ -645,26 +569,31 @@ function saveLineEdit() {
 function deleteCardLine(cardId, lineId) {
   const card = state.data.cards.find((entry) => entry.id === cardId);
   if (!card) return;
-  card.items = card.items.filter((line) => line.id !== lineId).map((line, index) => ({ ...line, order: index + 1 }));
-  card.updatedAt = nowIso();
-  state.selected.delete(`${cardId}:${lineId}`);
-  if (state.editingLineKey === `${cardId}:${lineId}`) {
-    state.editingLineKey = null;
-    state.lineEditDraft = null;
-    if (state.activePanel === "line-editor") state.activePanel = null;
-  }
-  scheduleSave();
-  render();
+  requestDeleteConfirm("이 줄을 삭제할까요?", () => {
+    card.items = card.items.filter((line) => line.id !== lineId).map((line, index) => ({ ...line, order: index + 1 }));
+    card.updatedAt = nowIso();
+    state.selected.delete(`${cardId}:${lineId}`);
+    if (state.editingLineKey === `${cardId}:${lineId}`) {
+      state.editingLineKey = null;
+      state.lineEditDraft = null;
+      if (state.activePanel === "line-editor") state.activePanel = null;
+    }
+    scheduleSave();
+    render();
+  }, { detail: `${card.title} 카드에서 제거됩니다.` });
 }
 
 function deleteCard(cardId) {
-  if (!confirm("카드를 삭제할까요?")) return;
-  state.data.cards = state.data.cards.filter((card) => card.id !== cardId);
-  for (const id of [...state.selected]) {
-    if (id.startsWith(`${cardId}:`)) state.selected.delete(id);
-  }
-  scheduleSave();
-  render();
+  const card = state.data.cards.find((entry) => entry.id === cardId);
+  if (!card) return;
+  requestDeleteConfirm("카드를 삭제할까요?", () => {
+    state.data.cards = state.data.cards.filter((entry) => entry.id !== cardId);
+    for (const id of [...state.selected]) {
+      if (id.startsWith(`${cardId}:`)) state.selected.delete(id);
+    }
+    scheduleSave();
+    render();
+  }, { detail: `${card.title} 카드와 안의 줄이 삭제됩니다.` });
 }
 
 function toggleFavorite(cardId) {
@@ -694,6 +623,13 @@ function toggleReveal(lineId) {
   render();
 }
 
+function clearRevealedSecrets() {
+  for (const timer of revealTimers.values()) clearTimeout(timer);
+  revealTimers.clear();
+  state.revealed.clear();
+  state.lastCopiedKey = "";
+}
+
 function toggleSelected(cardId, lineId, checked) {
   const key = `${cardId}:${lineId}`;
   if (checked) state.selected.add(key);
@@ -706,37 +642,18 @@ function selectedItemsForCard(card) {
 
 function updateSetting(key, value) {
   state.data.settings[key] = value;
+  applyAppearanceSettings(state.data.settings);
   scheduleSave();
+  if (key === "lockTimeoutMinutes") touchLockActivity();
+  if (key === "minimizeToTray" || key === "launchOnStartup") {
+    syncDesktopPreferences({ silent: false });
+  }
   render();
 }
 
-async function handleImport(file) {
-  if (!file) return;
-  if (!confirm("백업 JSON을 가져오면 현재 데이터가 백업된 뒤 새 데이터로 교체됩니다. 계속할까요?")) return;
-  try {
-    const text = await file.text();
-    state.data = await importDataFromJson(text);
-    syncActiveTabs(state, state.data.settings.lastTabId || "inbox", { single: true });
-    state.selected.clear();
-    notify("가져오기 완료");
-    render();
-  } catch (error) {
-    notify(`가져오기 실패: ${error.message}`);
-  }
-}
-
-async function handleExport() {
-  const json = await exportDataJson(state.data);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `linememo-lite-${new Date().toISOString().slice(0, 10)}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 function bindEvents() {
+  bindLockForms({ unlockApp, setPassword: setLockPassword, changePassword: changeLockPassword, removePassword: removeLockPassword });
+
   const searchInput = document.querySelector("#search");
   searchInput?.addEventListener("compositionstart", () => {
     isComposingSearch = true;
@@ -763,10 +680,23 @@ function bindEvents() {
     event.preventDefault();
     saveEditor(event.currentTarget);
   });
+  document.querySelector("#card-form")?.addEventListener("input", syncEditorDraft);
+  document.querySelector("#card-form")?.addEventListener("change", (event) => { syncEditorDraft(); if (event.target.name === "quickSplitMode") render(); });
 
-  document.querySelector("#inline-card-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    createInlineCard(event.currentTarget);
+  document.querySelectorAll("[data-draft]").forEach((control) => {
+    const eventName = control.type === "checkbox" || control.tagName === "SELECT" ? "change" : "input";
+    control.addEventListener(eventName, (event) => {
+      syncDraftField(event.currentTarget, state);
+      if (event.currentTarget.dataset.draftRender === "true") render();
+    });
+  });
+  bindQuickPastePreview();
+
+  document.querySelector("[data-line-move-target]")?.addEventListener("change", (event) => {
+    updateLineMoveTarget(event.currentTarget.value);
+  });
+  document.querySelector("[data-line-move-query]")?.addEventListener("input", (event) => {
+    updateLineMoveQuery(event.currentTarget.value);
   });
 
   document.querySelector("[data-table-quick-add]")?.addEventListener("submit", (event) => {
@@ -798,14 +728,13 @@ function bindEvents() {
   document.querySelectorAll("[data-setting]").forEach((control) => {
     control.addEventListener("change", (event) => {
       const key = event.target.dataset.setting;
-      const value = event.target.type === "checkbox" ? event.target.checked : Number(event.target.value);
+      const type = event.target.dataset.settingType || "";
+      const value = event.target.type === "checkbox"
+        ? event.target.checked
+        : type === "string"
+          ? event.target.value
+          : Number(event.target.value);
       updateSetting(key, value);
-    });
-  });
-
-  document.querySelectorAll("[data-edit-line]").forEach((element) => {
-    element.addEventListener("dblclick", (event) => {
-      startLineEdit(event.currentTarget.dataset.card, event.currentTarget.dataset.id);
     });
   });
 
@@ -847,6 +776,7 @@ function bindEvents() {
         const valueInput = document.querySelector("[data-line-edit-value]");
         if (valueInput) valueInput.value = "---";
       }
+      if (field === "type") render();
     });
     control.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && !event.shiftKey) {
@@ -881,35 +811,6 @@ function bindEvents() {
   });
 }
 
-document.addEventListener("keydown", (event) => {
-  if (event.ctrlKey && event.key.toLowerCase() === "f") {
-    event.preventDefault();
-    document.querySelector("#search")?.focus();
-  }
-  if (event.ctrlKey && event.key.toLowerCase() === "n") {
-    event.preventDefault();
-    startNewCard();
-  }
-  if (event.ctrlKey && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    scheduleSave();
-    notify("저장됨");
-  }
-  if (event.key === "Escape") {
-    if (state.editingCellKey) cancelCellEdit();
-    else if (state.editingLineKey) cancelLineEdit();
-    else if (state.editingCardId) closeEditor();
-    else if (state.activePanel) openPanel(state.activePanel);
-  }
-  if (event.ctrlKey && event.key.toLowerCase() === "c") {
-    const selected = selectedItemsInView();
-    if (selected.length) {
-      event.preventDefault();
-      copySelectedInView(false);
-    }
-  }
-});
-
 ({ render, renderTagPreview } = createRenderers({
   app,
   state,
@@ -924,14 +825,52 @@ document.addEventListener("keydown", (event) => {
   scheduleSave,
   notify,
   closeEditor,
+  render: () => render(),
+  clearDraftForPending
+}));
+
+({ requestDeleteConfirm, cancelDeleteConfirm, confirmPendingDelete } = createDeleteConfirmActions({
+  state,
+  render: () => render(),
+  notify
+}));
+
+({ quickPaste } = createQuickInputActions({
+  state,
+  resolveDuplicatesBeforeAdd,
+  scheduleSave,
+  notify,
+  clearQuickDraft,
   render: () => render()
 }));
 
-({ selectedItemsInView, copySelectedInView, clearSelection } = createSelectionActions({
+({ quickAddLineFromForm } = createQuickLineActions({
+  state,
+  resolveDuplicatesBeforeAdd,
+  scheduleSave,
+  notify,
+  clearTableAddDraft,
+  clearQuickLineDraft
+}));
+
+({ copyText } = createCopyActions({ state, notify, render: () => render(), writeText, readText }));
+
+({ copySplitPattern, insertSplitPattern } = createSplitPatternActions({ copyText, notify }));
+
+({ startLineMove, updateLineMoveTarget, updateLineMoveQuery, cancelLineMove, confirmLineMove } = createLineMoveActions({
+  state,
+  scheduleSave,
+  notify,
+  render: () => render()
+}));
+
+({ selectedItemsInView, copySelectedInView, clearSelection, groupSelectedInView } = createSelectionActions({
   state,
   copyText,
   selectedItemsForCard,
-  render: () => render()
+  render: () => render(),
+  scheduleSave,
+  notify
 }));
 
 ({ setViewMode, focusTableAdd } = createViewActions({
@@ -945,7 +884,32 @@ document.addEventListener("keydown", (event) => {
   notify,
   render: () => render(),
   tagStats,
-  clampManagerPage
+  clampManagerPage,
+  requestDeleteConfirm
+}));
+
+({ handleImport, handleExport } = createBackupActions({
+  state,
+  notify,
+  render: () => render()
+}));
+
+({
+  lockApp,
+  unlockApp,
+  setPassword: setLockPassword,
+  changePassword: changeLockPassword,
+  removePassword: removeLockPassword,
+  lockOnBoot,
+  touchActivity: touchLockActivity,
+  bindActivityTracking: bindLockActivityTracking
+} = createLockActions({
+  state,
+  scheduleSave,
+  notify,
+  render: () => render(),
+  clearSecrets: clearRevealedSecrets,
+  openSettings: () => state.activePanel !== "settings" && openPanel("settings")
 }));
 
 const handleAction = createUiActionHandler({
@@ -977,6 +941,9 @@ const handleAction = createUiActionHandler({
   cancelLineEdit,
   deleteCardLine,
   startLineEdit,
+  startLineMove,
+  cancelLineMove,
+  confirmLineMove,
   startNewCard,
   createTab,
   focusDuplicate,
@@ -984,16 +951,42 @@ const handleAction = createUiActionHandler({
   selectedItemsForCard,
   copySelectedInView,
   clearSelection,
+  groupSelectedInView,
   copyText,
+  copySplitPattern,
+  insertSplitPattern,
   setViewMode,
   focusTableAdd,
-  handleExport
+  handleExport,
+  lockApp,
+  cancelDeleteConfirm,
+  confirmPendingDelete
 });
 
 bindRootActions(app, handleAction);
+bindTagSuggestionActions(app, { state });
+bindLineContextMenuActions(app, { state, render: () => render(), copyText, startLineEdit, startLineMove, deleteCardLine, toggleReveal, scheduleSave, notify });
+bindEditorDraftPersistence(app, { state, syncEditorDraft, scheduleDraftSave });
+bindLockActivityTracking();
+bindKeyboardShortcuts({
+  state,
+  startNewCard,
+  openPanel,
+  setViewMode,
+  focusTableAdd,
+  lockApp,
+  cancelCellEdit,
+  cancelLineEdit,
+  cancelLineMove,
+  closeEditor,
+  saveCellEdit,
+  saveLineEdit,
+  scheduleSave,
+  notify,
+  selectedItemsInView,
+  copySelectedInView
+});
 
 boot().catch((error) => {
   app.innerHTML = `<pre class="fatal">${escapeHtml(error.message || error)}</pre>`;
 });
-
-

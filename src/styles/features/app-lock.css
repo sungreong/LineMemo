@@ -1,0 +1,104 @@
+.lock-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--surface), transparent 8%), var(--bg));
+}
+
+.lock-card {
+  display: grid;
+  gap: 14px;
+  width: min(360px, 100%);
+  padding: 22px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 55%);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.lock-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 56%);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--accent), var(--surface) 88%);
+  color: var(--accent);
+}
+
+.lock-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.lock-copy strong {
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.lock-copy p,
+.lock-note,
+.form-error {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.lock-form,
+.password-form {
+  display: grid;
+  gap: 8px;
+}
+
+.form-error {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.lock-settings-section .panel-note {
+  line-height: 1.45;
+}
+
+.lock-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 62%);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--accent), var(--surface) 92%);
+}
+
+.lock-status span {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.lock-status button,
+.password-form button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.compact-password-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+@media (max-width: 560px) {
+  .compact-password-form,
+  .lock-status {
+    grid-template-columns: 1fr;
+  }
+
+  .lock-status span {
+    display: none;
+  }
+}

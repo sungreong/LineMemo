@@ -41,3 +41,19 @@ export async function exportDataJson(data) {
   const exported = await invoke("export_data");
   return JSON.stringify(exported, null, 2);
 }
+
+export async function applyDesktopPreferences(settings = {}) {
+  const prefs = {
+    minimizeToTray: Boolean(settings.minimizeToTray),
+    launchOnStartup: Boolean(settings.launchOnStartup)
+  };
+  if (!isTauri) return { ...prefs, available: false };
+  const status = await invoke("set_desktop_preferences", { prefs });
+  return { ...status, available: true };
+}
+
+export async function getDesktopPreferences() {
+  if (!isTauri) return { minimizeToTray: false, launchOnStartup: false, available: false };
+  const status = await invoke("get_desktop_preferences");
+  return { ...status, available: true };
+}

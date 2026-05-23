@@ -2,6 +2,7 @@ const paths = {
   plus: `<path d="M12 5v14"/><path d="M5 12h14"/>`,
   input: `<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>`,
   paste: `<path d="M8 4h8"/><path d="M9 2h6v4H9z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>`,
+  move: `<path d="M5 12h13"/><path d="m14 8 4 4-4 4"/><path d="M5 5h8"/><path d="M5 19h8"/>`,
   copy: `<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>`,
   check: `<path d="M20 6 9 17l-5-5"/>`,
   rows: `<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>`,
@@ -25,9 +26,18 @@ const paths = {
   upload: `<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>`,
   download: `<path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>`,
   clock: `<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
-  shield: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`
+  shield: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`,
+  lock: `<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>`,
+  key: `<circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12 21 1"/><path d="m15 6 3 3"/><path d="m17 4 3 3"/>`,
+  label: `<path d="M4 7h10"/><path d="M4 12h16"/><path d="M4 17h12"/><path d="M18 7h2"/>`,
+  external: `<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M19 13v5a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h5"/>`,
+  square: `<rect x="4" y="4" width="16" height="16" rx="3"/>`,
+  checkSquare: `<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/>`,
+  copyStack: `<rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 15V6a2 2 0 0 1 2-2h9"/>`,
+  tabCopy: `<path d="M4 7h9l2 3h5v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M9 13h6"/><path d="M12 10v6"/>`,
+  rotate: `<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v6h-6"/>`
 };
 
 export function icon(name) {
-  return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || ""}</svg>`;
+  return `<svg class="icon icon-${name}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name] || ""}</svg>`;
 }

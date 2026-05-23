@@ -2,9 +2,12 @@
 @import "./styles/01-base-layout.css";
 @import "./styles/components/toolbar.css";
 @import "./styles/components/action-rails.css";
+@import "./styles/components/context-menu.css";
+@import "./styles/components/tag-suggestions.css";
 @import "./styles/components/modal-shell.css";
 @import "./styles/02-card-rows.css";
 @import "./styles/03-modal-table.css";
 @import "./styles/04-forms-managers.css";
 @import "./styles/features/settings-backup.css";
+@import "./styles/features/app-lock.css";
 @import "./styles/05-responsive-dense.css";

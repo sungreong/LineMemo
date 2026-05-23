@@ -2,10 +2,70 @@
   z-index: 55;
 }
 
+.delete-confirm-backdrop {
+  z-index: 58;
+}
+
 .conflict-panel {
   display: grid;
   gap: 10px;
   width: min(520px, 100%);
+}
+
+.delete-confirm-panel {
+  display: grid;
+  gap: 10px;
+  width: min(460px, 100%);
+}
+
+.delete-confirm-detail,
+.delete-confirm-muted {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in oklch, var(--danger), var(--line) 62%);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--danger), var(--surface) 94%);
+  color: color-mix(in oklch, var(--danger), var(--ink) 18%);
+  font-size: var(--font-sm);
+}
+
+.delete-confirm-muted {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 58%);
+  background: color-mix(in oklch, var(--accent), var(--surface) 92%);
+  color: color-mix(in oklch, var(--accent), var(--ink) 18%);
+}
+
+.delete-confirm-skip {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 24px;
+  width: fit-content;
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.delete-confirm-skip input {
+  width: auto;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.delete-confirm-delete {
+  min-width: 64px;
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.delete-confirm-delete:hover:not(:disabled) {
+  color: var(--accent-ink);
+  filter: brightness(0.96);
 }
 
 .conflict-list {
@@ -46,10 +106,11 @@
 .editor-details {
   display: grid;
   gap: 8px;
-  padding: 0 8px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-2);
+  padding: 0 0 8px;
+  border: 0;
+  border-top: 1px solid color-mix(in oklch, var(--line), transparent 20%);
+  border-radius: 0;
+  background: transparent;
 }
 
 .editor-details summary {
@@ -68,10 +129,18 @@
 
 .line-table {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: calc(100vh - 204px);
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.table-scroll-body {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .table-add-row {
@@ -92,9 +161,16 @@
 }
 
 .table-add-row input,
-.table-add-row select {
+.table-add-row select,
+.table-add-row textarea {
   min-height: 30px;
   font-size: 13px;
+}
+
+.table-add-row textarea {
+  max-height: 140px;
+  line-height: 1.35;
+  resize: vertical;
 }
 
 .table-add-row.with-tabs select[name="cardId"] {
@@ -144,7 +220,7 @@
 
 .table-head {
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, color-mix(in oklch, var(--surface-2), white 20%), var(--surface-2));
+  background: linear-gradient(180deg, color-mix(in oklch, var(--surface-2), var(--ink) 6%), var(--surface-2));
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -168,6 +244,44 @@
   background: color-mix(in oklch, var(--surface), transparent 0%);
 }
 
+.table-set-row {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-bottom: 1px solid color-mix(in oklch, var(--accent), var(--line) 72%);
+  border-left: 2px solid color-mix(in oklch, var(--accent), var(--line) 35%);
+  background: color-mix(in oklch, var(--accent), var(--surface) 94%);
+  color: var(--muted);
+  font-size: var(--font-xs);
+}
+
+.table-set-row strong,
+.table-set-row span {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-set-row strong {
+  color: var(--accent-strong);
+}
+
+.table-set-row div {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.table-set-row button {
+  min-height: 22px;
+  padding-inline: 7px;
+  font-size: var(--font-xs);
+}
+
 .table-row:last-child {
   border-bottom: 0;
 }
@@ -179,6 +293,16 @@
 .table-row.selected {
   background: color-mix(in oklch, var(--accent), var(--surface) 90%);
   box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.table-row.grouped-row {
+  box-shadow: inset 2px 0 0 color-mix(in oklch, var(--accent), var(--line) 35%);
+}
+
+.table-row.grouped-row.selected {
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    inset 4px 0 0 color-mix(in oklch, var(--accent), var(--line) 35%);
 }
 
 .table-row .icon-button,
@@ -194,6 +318,13 @@
 .card:hover .card-actions .icon-button,
 .card:focus-within .card-actions .icon-button {
   opacity: 1;
+}
+
+.table-row .table-actions .copy-line {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 68%);
+  background: color-mix(in oklch, var(--accent), var(--surface) 90%);
+  color: var(--accent);
+  opacity: 0.86;
 }
 
 .table-row strong {
@@ -227,8 +358,19 @@
 }
 
 .table-row .cell-edit-input {
-  height: 26px;
   min-height: 26px;
+}
+
+.table-row input.cell-edit-input,
+.table-row select.cell-edit-input {
+  height: 26px;
+}
+
+.table-row textarea.cell-edit-input {
+  min-height: 54px;
+  max-height: 160px;
+  line-height: 1.35;
+  resize: vertical;
 }
 
 .table-actions input[type="checkbox"] {
@@ -252,12 +394,21 @@
 }
 
 .line-edit-value-group input,
+.line-edit-value-group textarea,
 .line-edit-value-group select {
   min-width: 0;
 }
 .preview-row .cell-edit-input {
   height: 25px;
   min-height: 25px;
+}
+
+.preview-row textarea.cell-edit-input {
+  height: auto;
+  min-height: 54px;
+  max-height: 150px;
+  line-height: 1.35;
+  resize: vertical;
 }
 
 .table-row .tab-badge {
@@ -268,9 +419,20 @@
   text-align: left;
 }
 
-.table-row code {
-  color: oklch(27% 0.025 78);
+.table-row code,
+.table-row .line-value {
+  color: color-mix(in oklch, var(--ink), var(--muted) 10%);
   font-size: 12px;
+}
+
+.table-line-value {
+  min-height: 24px;
+  max-height: 28px;
+}
+
+.table-line-value .image-value-view img {
+  width: 32px;
+  height: 22px;
 }
 
 .table-row.secret code {
@@ -299,7 +461,8 @@
 }
 
 .table-row.line-edit-row input,
-.table-row.line-edit-row select {
+.table-row.line-edit-row select,
+.table-row.line-edit-row textarea {
   min-height: 28px;
   padding: 4px 7px;
   font-size: 12px;
@@ -328,6 +491,28 @@
 
 .line-editor-panel {
   gap: 10px;
+  min-width: 0;
+}
+
+.line-history-details {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  border-top: 1px solid color-mix(in oklch, var(--line), transparent 18%);
+  background: transparent;
+}
+
+.line-history-details summary {
+  min-height: 30px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 30px;
+}
+
+.line-history-details[open] {
+  padding-bottom: 2px;
 }
 
 .line-history {
@@ -340,9 +525,9 @@
 .line-history div {
   min-width: 0;
   padding: 6px 7px;
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in oklch, var(--line), transparent 18%);
   border-radius: 6px;
-  background: var(--surface-2);
+  background: color-mix(in oklch, var(--surface-2), transparent 22%);
 }
 
 .line-history dt {
@@ -363,10 +548,31 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(110px, 0.42fr);
   gap: 8px;
+  min-width: 0;
+}
+
+.line-editor-grid label,
+.line-editor-grid input,
+.line-editor-grid select,
+.line-editor-grid textarea {
+  min-width: 0;
 }
 
 .line-editor-value {
   grid-column: 1 / -1;
+}
+
+.line-editor-preview {
+  grid-column: 1 / -1;
+  padding: 7px 8px;
+  border: 1px dashed color-mix(in oklch, var(--accent), var(--line) 62%);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--surface), var(--accent) 3%);
+}
+
+.line-editor-value textarea {
+  min-height: 190px;
+  resize: vertical;
 }
 
 .line-editor-actions {

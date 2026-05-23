@@ -1,7 +1,7 @@
 export function createViewActions({ state, render }) {
   function setViewMode(mode) {
     state.viewMode = mode === "table" ? "table" : "cards";
-    state.denseMode = mode !== "cards";
+    if (mode === "dense") state.denseMode = true;
     localStorage.setItem("linememo-view-mode", state.viewMode);
     localStorage.setItem("linememo-dense-mode", String(state.denseMode));
     render();

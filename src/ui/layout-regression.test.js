@@ -4,6 +4,8 @@ import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const toolbarCss = readFileSync(new URL("../styles/components/toolbar.css", import.meta.url), "utf8");
+const baseCss = readFileSync(new URL("../styles/01-base-layout.css", import.meta.url), "utf8");
+const cardRowsCss = readFileSync(new URL("../styles/02-card-rows.css", import.meta.url), "utf8");
 const actionCss = readFileSync(new URL("../styles/components/action-rails.css", import.meta.url), "utf8");
 const modalShellCss = readFileSync(new URL("../styles/components/modal-shell.css", import.meta.url), "utf8");
 const settingsCss = readFileSync(new URL("../styles/features/settings-backup.css", import.meta.url), "utf8");
@@ -51,6 +53,13 @@ describe("layout regression guards", () => {
     expect(responsiveCss).not.toContain(".line-editor-grid,\n  .line-editor-actions");
     expect(responsiveCss).toContain(".line-editor-grid");
     expect(responsiveCss).toContain("minmax(104px, 0.45fr)");
+  });
+
+  test("form fields use theme-aware backgrounds", () => {
+    expect(baseCss).toContain("--field-bg");
+    expect(toolbarCss).toContain("background: var(--field-bg)");
+    expect(cardRowsCss).toContain("background: var(--field-bg)");
+    expect(`${toolbarCss}\n${cardRowsCss}`).not.toContain("background: oklch(99% 0.006 82)");
   });
 
   test("source JS and CSS files stay under the 1000 line budget", () => {

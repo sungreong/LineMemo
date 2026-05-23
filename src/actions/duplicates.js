@@ -2,7 +2,7 @@ import { makeCard, nowIso, sortedItems, stampLine } from "../domain.js";
 import { syncActiveTabs } from "../state/tabs.js";
 
 export function createDuplicateActions(ctx) {
-  const { state, scheduleSave, notify, closeEditor, render } = ctx;
+  const { state, scheduleSave, notify, closeEditor, render, clearDraftForPending = () => {} } = ctx;
 
   function tabNameForCard(card) {
     return state.data.tabs.find((tab) => tab.id === card.tabId)?.name || "Inbox";
@@ -82,12 +82,13 @@ export function createDuplicateActions(ctx) {
       addCardPayload(pending.payload, "카드 추가됨");
       state.showTableAdd = false;
     }
-    if (pending.type === "quick-lines") addLines(pending.cardId, pending.items);
+    if (pending.type === "quick-lines") addLines(pending.cardId, pending.items, pending.message, pending.focusTarget);
     if (pending.type === "quick-line") addLines(pending.cardId, [pending.item]);
+    clearDraftForPending(pending);
     render();
   }
 
-  function addLines(cardId, items) {
+  function addLines(cardId, items, message = "", focusTarget = false) {
     const card = state.data.cards.find((entry) => entry.id === cardId);
     if (!card) return;
     const maxOrder = sortedItems(card.items).at(-1)?.order || 0;
@@ -96,8 +97,12 @@ export function createDuplicateActions(ctx) {
     card.updatedAt = time;
     state.expandedCards.add(card.id);
     state.collapsedCards.delete(card.id);
+    if (focusTarget) {
+      syncActiveTabs(state, card.tabId, { single: true });
+      state.query = "";
+    }
     scheduleSave();
-    notify(items.length > 1 ? `${items.length}줄 추가됨` : "줄 추가됨");
+    notify(message || (items.length > 1 ? `${items.length}줄 추가됨` : "줄 추가됨"));
   }
 
   return { resolveDuplicatesBeforeAdd, focusDuplicate, commitDuplicatePending };

@@ -25,7 +25,6 @@
     padding: 7px;
   }
 
-  .tabs,
   .tag-filters {
     margin-inline: -1px;
   }
@@ -54,6 +53,15 @@
     gap: 5px;
   }
 
+  .quick-line-form {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .quick-line-form textarea,
+  .quick-line-form input[name="lineLabel"] {
+    grid-column: 1 / -1;
+  }
+
   .line-edit-row,
   .preview-row.line-edit-row,
   .table-row.line-edit-row {
@@ -62,6 +70,7 @@
 
   .line-edit-row input,
   .line-edit-row select,
+  .line-edit-row textarea,
   .line-edit-row label,
   .line-edit-row strong,
   .line-edit-row .tab-badge {
@@ -125,6 +134,7 @@
   }
 
   .line-edit-value-group input,
+  .line-edit-value-group textarea,
   .line-edit-value-group select,
   .line-edit-value-group label {
     grid-column: auto;
@@ -136,6 +146,7 @@
 
   .table-add-row select,
   .table-add-row input[name="lineLabel"],
+  .table-add-row textarea[name="lineValue"],
   .table-add-row .secret-toggle,
   .table-add-row.with-tabs select[name="cardId"] {
     grid-column: 1 / -1;
@@ -204,12 +215,51 @@
   }
 
   .panel {
+    --panel-pad: 10px;
     padding: 10px;
   }
 
   .editor-top-grid,
-  .editor-import {
+  .editor-meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .editor-import-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .new-card-help {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-destination strong,
+  .quick-destination small {
+    white-space: normal;
+  }
+
+  .quick-options-row,
+  .pattern-control-row,
+  .paste-options,
+  .paste-options.has-pattern {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-preview-samples {
+    grid-template-columns: 1fr;
+  }
+
+  .line-move-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .line-move-actions {
+    justify-content: stretch;
+  }
+
+  .line-move-actions button {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 
   .edit-line-grid {
@@ -262,7 +312,6 @@
   min-height: 28px;
 }
 
-.dense .tabs,
 .dense .tag-filters {
   gap: 3px;
   padding-bottom: 3px;
@@ -355,6 +404,12 @@
   border-radius: 4px;
 }
 
+.dense .copy-set-row,
+.dense .table-set-row {
+  min-height: 24px;
+  padding-block: 2px;
+}
+
 .dense .tiny {
   min-height: 22px;
   padding-inline: 5px;
@@ -365,6 +420,13 @@
   min-width: 26px;
 }
 
+.dense .table-actions .tiny.icon-button {
+  height: 24px;
+  width: 28px;
+  min-width: 28px;
+  min-height: 24px;
+}
+
 .dense .line-label,
 .dense .line-value,
 .dense .table-row span,
@@ -373,19 +435,29 @@
 }
 
 .dense .line-label::before {
+  flex: 0 0 auto;
   content: "⋮⋮";
   margin-right: 5px;
   color: color-mix(in oklch, var(--muted), transparent 25%);
   letter-spacing: -2px;
 }
 
-.dense .quick-line-form {
-  grid-template-columns: minmax(110px, 1fr) minmax(58px, 0.34fr) auto auto;
-  gap: 4px;
-  padding: 2px 8px 6px;
+.dense .line-group-chip {
+  max-width: 58px;
+  min-height: 15px;
+  padding-inline: 4px;
+  font-size: 9px;
 }
 
-.dense .quick-line-form input {
+.dense .quick-line-form {
+  grid-template-columns: minmax(110px, 1fr) minmax(58px, 0.34fr) auto auto auto;
+  gap: 4px;
+  margin: 0 8px 6px;
+  padding: 6px;
+}
+
+.dense .quick-line-form input,
+.dense .quick-line-form textarea {
   min-height: 26px;
 }
 
@@ -428,7 +500,8 @@
 }
 
 .dense .table-add-row input,
-.dense .table-add-row select {
+.dense .table-add-row select,
+.dense .table-add-row textarea {
   min-height: 26px;
   padding-block: 4px;
 }

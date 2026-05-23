@@ -3,10 +3,12 @@ import {
   copyTextForItems,
   copyTextForOrderedItems,
   createEmptyData,
+  DEFAULT_SPLIT_PATTERN,
   getBlocks,
   mergeLineTimestamps,
   normalizeData,
   normalizeSearchText,
+  parsePasteItems,
   parseLineParts,
   parseLines,
   parseSearchQuery,
@@ -14,10 +16,20 @@ import {
   searchCards
 } from "./domain.js";
 
+const EMPTY_SEARCH_FIELDS = {
+  title: [],
+  values: [],
+  labels: [],
+  groups: [],
+  tags: [],
+  tab: [],
+  description: []
+};
+
 describe("parseLines", () => {
   test("splits non-empty lines and infers divider, url, command, and text", () => {
-    const items = parseLines("hello\n\n---\nhttps://example.com\nssh user@host\nnpm run dev");
-    expect(items.map((item) => item.type)).toEqual(["text", "divider", "url", "command", "command"]);
+    const items = parseLines("hello\n\n---\nhttps://example.com\nhttps://example.com/photo.png\nssh user@host\nnpm run dev");
+    expect(items.map((item) => item.type)).toEqual(["text", "divider", "url", "image", "command", "command"]);
     expect(items[1].value).toBe("---");
     expect(items.every((item) => item.createdAt && item.updatedAt)).toBe(true);
   });
@@ -33,6 +45,18 @@ describe("parseLines", () => {
       ["이메일", "diglocas@gmail.com"],
       ["apikey", "sk-test"]
     ]);
+  });
+
+  test("can keep multiline blocks together when splitting by pattern", () => {
+    const items = parsePasteItems(`alpha\nkept together\n${DEFAULT_SPLIT_PATTERN}\nbeta`, { splitMode: "pattern" });
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.value)).toEqual(["alpha\nkept together", "beta"]);
+    expect(items.map((item) => item.type)).toEqual(["text", "text"]);
+  });
+
+  test("supports a custom standalone split pattern", () => {
+    const items = parsePasteItems("alpha\n+++MEMO+++\nbeta", { splitMode: "pattern", splitPattern: "+++MEMO+++" });
+    expect(items.map((item) => item.value)).toEqual(["alpha", "beta"]);
   });
 });
 
@@ -56,12 +80,13 @@ describe("line timestamps", () => {
     });
     expect(data.cards[0].items[0].createdAt).toBe("");
     expect(data.cards[0].items[0].updatedAt).toBe("");
+    expect(data.cards[0].items[0].group).toBe("");
   });
 
   test("updates only changed lines when merging editor items", () => {
     const previous = [
-      { id: "a", label: "A", value: "same", type: "text", secret: false, order: 1, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
-      { id: "b", label: "B", value: "old", type: "text", secret: false, order: 2, createdAt: "", updatedAt: "" }
+      { id: "a", label: "A", value: "same", group: "계정", type: "text", secret: false, order: 1, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "b", label: "B", value: "old", group: "", type: "text", secret: false, order: 2, createdAt: "", updatedAt: "" }
     ];
     const next = [
       { ...previous[0] },
@@ -181,6 +206,78 @@ describe("searchCards", () => {
     expect(searchCards(data, "all", "ㅇㅕㄱㅝㄴ").map((card) => card.id)).toEqual(["card-passport"]);
     expect(searchCards(data, "all", "  여권  ").map((card) => card.id)).toEqual(["card-passport"]);
   });
+
+  test("searches title, labels, values, tags, and tab names with field filters", () => {
+    const data = createEmptyData();
+    data.cards = [
+      {
+        id: "card-server",
+        tabId: "ssh",
+        title: "서버연동",
+        description: "N8N 인증 정보",
+        tags: ["서버", "연동"],
+        favorite: false,
+        createdAt: "",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        items: [
+          { id: "line-tenant", label: "TenantId", value: "25f6ff02-1ae0-4719-a2b7", group: "MS Graph", type: "text", secret: false, order: 1 },
+          { id: "line-secret", label: "ClientSecret", value: "secret-value", group: "MS Graph", type: "text", secret: true, order: 2 }
+        ]
+      },
+      {
+        id: "card-news",
+        tabId: "api",
+        title: "n8n 뉴스 브리핑",
+        description: "",
+        tags: ["뉴스모니터링"],
+        favorite: false,
+        createdAt: "",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+        items: [
+          { id: "line-email", label: "담당자", value: "digiloca@lottecard.co.kr", type: "text", secret: false, order: 1 }
+        ]
+      }
+    ];
+
+    expect(searchCards(data, "all", "제목:n8n").map((card) => card.id)).toEqual(["card-news"]);
+    expect(searchCards(data, "all", "label:tenant").map((card) => card.id)).toEqual(["card-server"]);
+    expect(searchCards(data, "all", "값:digiloca").map((card) => card.id)).toEqual(["card-news"]);
+    expect(searchCards(data, "all", "묶음:graph").map((card) => card.id)).toEqual(["card-server"]);
+    expect(searchCards(data, "all", "태그:서버").map((card) => card.id)).toEqual(["card-server"]);
+    expect(searchCards(data, "all", "tab:api").map((card) => card.id)).toEqual(["card-news"]);
+    expect(searchCards(data, "all", "tenant 25f6").map((card) => card.id)).toEqual(["card-server"]);
+    expect(searchCards(data, "all", "digiloca lottecard").map((card) => card.id)).toEqual(["card-news"]);
+  });
+
+  test("ranks card names and labels ahead of lower value-only matches", () => {
+    const data = createEmptyData();
+    data.cards = [
+      {
+        id: "card-value",
+        tabId: "api",
+        title: "서버 환경",
+        description: "",
+        tags: [],
+        favorite: false,
+        createdAt: "",
+        updatedAt: "2026-01-03T00:00:00.000Z",
+        items: [{ id: "line-value", label: "메모", value: "api api api api", type: "text", secret: false, order: 1 }]
+      },
+      {
+        id: "card-title",
+        tabId: "api",
+        title: "API 키",
+        description: "",
+        tags: [],
+        favorite: false,
+        createdAt: "",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        items: [{ id: "line-title", label: "값", value: "secret", type: "text", secret: true, order: 1 }]
+      }
+    ];
+
+    expect(searchCards(data, "all", "api").map((card) => card.id)).toEqual(["card-title", "card-value"]);
+  });
 });
 
 describe("parseTags", () => {
@@ -191,8 +288,22 @@ describe("parseTags", () => {
 
 describe("parseSearchQuery", () => {
   test("extracts multiple tags and preserves text", () => {
-    expect(parseSearchQuery("#뉴스 #api ssh")).toEqual({ tags: ["뉴스", "api"], text: "ssh" });
-    expect(parseSearchQuery("ssh #뉴스, #api #뉴스")).toEqual({ tags: ["뉴스", "api"], text: "ssh" });
+    expect(parseSearchQuery("#뉴스 #api ssh")).toEqual({ tags: ["뉴스", "api"], text: "ssh", fields: EMPTY_SEARCH_FIELDS });
+    expect(parseSearchQuery("ssh #뉴스, #api #뉴스")).toEqual({ tags: ["뉴스", "api"], text: "ssh", fields: EMPTY_SEARCH_FIELDS });
+  });
+
+  test("extracts scoped field filters from the same search box", () => {
+    expect(parseSearchQuery("제목:n8n 값:digiloca label:tenant 묶음:graph ssh")).toEqual({
+      tags: [],
+      text: "ssh",
+      fields: {
+        ...EMPTY_SEARCH_FIELDS,
+        title: ["n8n"],
+        values: ["digiloca"],
+        labels: ["tenant"],
+        groups: ["graph"]
+      }
+    });
   });
 });
 

@@ -10,10 +10,27 @@
 
 .table-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   white-space: nowrap;
+}
+
+.table-actions .delete-line-button {
+  margin-left: 6px;
+}
+
+.table-actions .tiny.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.table-actions .tiny.icon-button .icon {
+  width: 14px;
+  height: 14px;
 }
 
 .table-action-head {

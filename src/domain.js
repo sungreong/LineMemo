@@ -1,3 +1,5 @@
+import MiniSearch from "minisearch";
+
 export const DEFAULT_TABS = [
   { id: "all", name: "전체", order: 0, system: true },
   { id: "inbox", name: "Inbox", order: 1, system: true },
@@ -17,10 +19,28 @@ export const DEFAULT_SETTINGS = {
   autoClearClipboard: false,
   clipboardClearSeconds: 30,
   secretRevealSeconds: 10,
-  acknowledgedPlainTextWarning: false
+  confirmBeforeDelete: true,
+  cardDraftAutosave: true,
+  lineContextMenu: true,
+  rightClickCopy: false,
+  lineClickSelect: false,
+  cardEditorDraftSnapshot: null,
+  fontSize: "normal",
+  colorTheme: "warm",
+  darkMode: false,
+  minimizeToTray: false,
+  launchOnStartup: false,
+  acknowledgedPlainTextWarning: false,
+  lockEnabled: false,
+  lockPasswordHash: "",
+  lockPasswordSalt: "",
+  lockPasswordAlgorithm: "PBKDF2-SHA256",
+  lockPasswordIterations: 210000,
+  lockTimeoutMinutes: 60
 };
 
-export const ITEM_TYPES = ["text", "url", "command", "code", "divider", "note"];
+export const ITEM_TYPES = ["text", "url", "command", "code", "image", "divider", "note"];
+export const DEFAULT_SPLIT_PATTERN = "---LINE---";
 
 export function createEmptyData() {
   return {
@@ -59,18 +79,38 @@ export function formatTags(tags) {
 export function parseSearchQuery(query) {
   const raw = String(query || "");
   const tags = [];
+  const fields = { title: [], values: [], labels: [], groups: [], tags: [], tab: [], description: [] };
   const text = raw
     .replace(/(^|[\s,])#([^\s,#]+)/g, (_match, prefix, tag) => {
       const normalized = normalizeTag(tag);
       if (normalized) tags.push(normalized);
       return prefix && prefix.trim() ? prefix : " ";
     })
+    .replace(/(^|[\s,])(title|제목|card|카드|value|값|label|라벨|group|묶음|set|세트|related|연계|tag|태그|tab|탭|desc|설명):([^\s,#]+)/gi, (_match, prefix, field, value) => {
+      const key = searchFieldKey(field);
+      const normalized = normalizeSearchText(value);
+      if (key && normalized) fields[key].push(normalized);
+      return prefix && prefix.trim() ? prefix : " ";
+    })
     .replace(/[,\s]+/g, " ")
     .trim();
   return {
     tags: [...new Set(tags)],
-    text
+    text,
+    fields: Object.fromEntries(Object.entries(fields).map(([key, values]) => [key, [...new Set(values)]]))
   };
+}
+
+function searchFieldKey(field) {
+  const key = normalizeSearchText(field);
+  if (["title", "제목", "card", "카드"].includes(key)) return "title";
+  if (["value", "값"].includes(key)) return "values";
+  if (["label", "라벨"].includes(key)) return "labels";
+  if (["group", "묶음", "set", "세트", "related", "연계"].includes(key)) return "groups";
+  if (["tag", "태그"].includes(key)) return "tags";
+  if (["tab", "탭"].includes(key)) return "tab";
+  if (["desc", "설명"].includes(key)) return "description";
+  return "";
 }
 
 const HANGUL_BASE = 0xac00;
@@ -119,6 +159,10 @@ export function normalizeSearchText(value) {
     .trim();
 }
 
+export function normalizeLineValueInput(value) {
+  return String(value || "").replace(/\r\n?/g, "\n");
+}
+
 export function nowIso() {
   return new Date().toISOString();
 }
@@ -130,7 +174,40 @@ export function normalizeData(input) {
     version: String(data.version || "0.1"),
     tabs: normalizeTabs(data.tabs),
     cards: Array.isArray(data.cards) ? data.cards.map(normalizeCard).filter(Boolean) : [],
-    settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) }
+    settings: normalizeSettings(data.settings)
+  };
+}
+
+function normalizeSettings(settings) {
+  const merged = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+  const timeout = Number(merged.lockTimeoutMinutes);
+  const iterations = Number(merged.lockPasswordIterations);
+  const hasPassword = Boolean(merged.lockPasswordHash && merged.lockPasswordSalt);
+  const fontSize = ["small", "normal", "large"].includes(merged.fontSize) ? merged.fontSize : "normal";
+  const colorTheme = ["warm", "sage", "sky", "rose", "slate"].includes(merged.colorTheme) ? merged.colorTheme : "warm";
+  return {
+    ...merged,
+    rememberLastTab: Boolean(merged.rememberLastTab),
+    autoClearClipboard: Boolean(merged.autoClearClipboard),
+    confirmBeforeDelete: merged.confirmBeforeDelete !== false && merged.confirmBeforeDelete !== "false",
+    cardDraftAutosave: merged.cardDraftAutosave !== false && merged.cardDraftAutosave !== "false",
+    lineContextMenu: merged.lineContextMenu !== false && merged.lineContextMenu !== "false",
+    rightClickCopy: Boolean(merged.rightClickCopy),
+    lineClickSelect: Boolean(merged.lineClickSelect),
+    fontSize,
+    colorTheme,
+    darkMode: Boolean(merged.darkMode),
+    minimizeToTray: Boolean(merged.minimizeToTray),
+    launchOnStartup: Boolean(merged.launchOnStartup),
+    acknowledgedPlainTextWarning: Boolean(merged.acknowledgedPlainTextWarning),
+    clipboardClearSeconds: Number.isFinite(Number(merged.clipboardClearSeconds)) ? Number(merged.clipboardClearSeconds) : 30,
+    secretRevealSeconds: Number.isFinite(Number(merged.secretRevealSeconds)) ? Number(merged.secretRevealSeconds) : 10,
+    lockEnabled: Boolean(merged.lockEnabled && hasPassword),
+    lockPasswordHash: String(merged.lockPasswordHash || ""),
+    lockPasswordSalt: String(merged.lockPasswordSalt || ""),
+    lockPasswordAlgorithm: String(merged.lockPasswordAlgorithm || "PBKDF2-SHA256"),
+    lockPasswordIterations: Number.isFinite(iterations) && iterations > 0 ? iterations : 210000,
+    lockTimeoutMinutes: Number.isFinite(timeout) ? Math.min(Math.max(timeout, 1), 1440) : 60
   };
 }
 
@@ -175,6 +252,7 @@ function normalizeLine(item, index) {
     id: String(item.id),
     label: String(item.label || ""),
     value: String(item.value || ""),
+    group: String(item.group || item.groupId || item.relation || "").trim(),
     type,
     secret: Boolean(item.secret),
     order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1,
@@ -187,17 +265,65 @@ export function inferType(line) {
   const value = line.trim();
   const lower = value.toLowerCase();
   if (value === "---") return "divider";
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(value) || /^https?:\/\/\S+\.(png|jpe?g|gif|webp|svg|avif)(?:[?#]\S*)?$/i.test(value)) return "image";
   if (lower.startsWith("http://") || lower.startsWith("https://")) return "url";
   if (/^(ssh|curl|python|pip|npm|uvicorn)\b/i.test(value)) return "command";
   return "text";
 }
 
 export function parseLines(text) {
+  return makeItemsFromValues(splitPasteText(text, { splitMode: "line" }));
+}
+
+export function parsePasteItems(text, options = {}) {
+  return makeItemsFromValues(splitPasteText(text, options));
+}
+
+export function applyBaseLabelToItems(items, baseLabel) {
+  const base = String(baseLabel || "").trim();
+  if (!base) return items;
+  const numbered = sortedItems(items).filter((item) => item.type !== "divider").length > 1;
+  let index = 0;
+  return items.map((item) => {
+    if (item.type === "divider") return item;
+    index += 1;
+    if (String(item.label || "").trim()) return item;
+    return { ...item, label: numbered ? `${base}.${index}` : base };
+  });
+}
+
+export function splitPasteText(text, options = {}) {
+  const raw = String(text || "");
+  if (options.splitMode !== "pattern") {
+    return raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  const pattern = String(options.splitPattern || DEFAULT_SPLIT_PATTERN).trim();
+  const trimmed = raw.trim();
+  if (!pattern) return trimmed ? [trimmed] : [];
+
+  const chunks = [];
+  let current = [];
+  for (const line of raw.replace(/\r\n/g, "\n").split("\n")) {
+    if (line.trim() === pattern) {
+      const value = current.join("\n").trim();
+      if (value) chunks.push(value);
+      current = [];
+    } else {
+      current.push(line);
+    }
+  }
+  const value = current.join("\n").trim();
+  if (value) chunks.push(value);
+  return chunks;
+}
+
+function makeItemsFromValues(values) {
   const time = nowIso();
-  return String(text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
+  return values
     .map((value, index) => {
       const parsed = parseLineParts(value);
       const type = inferType(parsed.value);
@@ -288,7 +414,7 @@ export function mergeLineTimestamps(nextItems, previousItems, time = nowIso()) {
   return nextItems.map((item, index) => {
     const previous = previousById.get(item.id);
     if (!previous) return stampLine(item, time, index + 1);
-    const changed = ["label", "value", "type", "secret"].some((key) => item[key] !== previous[key]);
+    const changed = ["label", "value", "group", "type", "secret"].some((key) => item[key] !== previous[key]);
     return {
       ...item,
       order: index + 1,
@@ -336,31 +462,194 @@ function lineCopyText(item, includeLabels) {
   return `${item.label}: ${item.value}`;
 }
 
+const SEARCH_FIELDS = ["title", "description", "tab", "tags", "groups", "labels", "values", "all"];
+const SEARCH_BOOST = { title: 8, groups: 7, labels: 6, tags: 5, tab: 4, values: 3, description: 1.5, all: 0.5 };
+const searchIndexCache = new WeakMap();
+
 export function searchCards(data, activeTabId, query) {
   const parsed = parseSearchQuery(query);
   const q = normalizeSearchText(parsed.text);
   const tagQueries = parsed.tags;
   const activeTabs = normalizeActiveTabFilter(activeTabId);
   const tabsById = new Map(data.tabs.map((tab) => [tab.id, tab]));
-  return data.cards.filter((card) => {
+  const scopedCards = data.cards.filter((card) => {
     const inTab = !activeTabs.length || activeTabs.includes(card.tabId);
     if (!inTab) return false;
     if (tagQueries.length) {
       const cardTags = parseTags(card.tags);
       if (!tagQueries.some((tag) => cardTags.includes(tag))) return false;
     }
-    if (!q) return true;
     const tabName = tabsById.get(card.tabId)?.name || "";
-    const rawHaystack = [
+    return matchesFieldFilters(card, parsed.fields, tabName);
+  });
+
+  if (!q) return scopedCards;
+
+  const index = getSearchIndex(data, tabsById);
+  const scopedIds = new Set(scopedCards.map((card) => card.id));
+  const scored = new Map();
+  const resultOptions = {
+    prefix: true,
+    fuzzy: (term) => term.length >= 5 ? 0.2 : false,
+    combineWith: "AND",
+    boost: SEARCH_BOOST,
+    filter: (result) => scopedIds.has(result.cardId)
+  };
+
+  for (const result of index.search.search(q, resultOptions)) {
+    const card = index.cardsById.get(result.cardId);
+    if (card) scored.set(card.id, { card, score: result.score });
+  }
+
+  const tokens = searchTokens(q);
+  for (const card of scopedCards) {
+    const tabName = tabsById.get(card.tabId)?.name || "";
+    const fallbackScore = scoreCardTextMatch(card, q, tokens, tabName);
+    if (!fallbackScore) continue;
+    const previous = scored.get(card.id);
+    scored.set(card.id, { card, score: (previous?.score || 0) + fallbackScore });
+  }
+
+  return [...scored.values()]
+    .sort((a, b) => b.score - a.score || compareCardsByRecency(a.card, b.card))
+    .map(({ card }) => card);
+}
+
+export function searchTokens(text) {
+  return tokenizeSearchText(text).map(processSearchTerm).filter(Boolean);
+}
+
+function getSearchIndex(data, tabsById) {
+  const signature = searchIndexSignature(data);
+  const cached = searchIndexCache.get(data);
+  if (cached?.signature === signature) return cached;
+
+  const docs = data.cards.map((card, index) => cardSearchDocument(card, tabsById, index));
+  const search = new MiniSearch({
+    fields: SEARCH_FIELDS,
+    storeFields: ["cardId"],
+    tokenize: tokenizeSearchText,
+    processTerm: processSearchTerm,
+    searchOptions: {
+      boost: SEARCH_BOOST,
+      prefix: true,
+      combineWith: "AND"
+    }
+  });
+  search.addAll(docs);
+  const entry = {
+    signature,
+    search,
+    cardsById: new Map(data.cards.map((card) => [card.id, card]))
+  };
+  searchIndexCache.set(data, entry);
+  return entry;
+}
+
+function searchIndexSignature(data) {
+  return [
+    data.tabs.map((tab) => `${tab.id}:${tab.name}`).join("|"),
+    data.cards.map((card) => [
+      card.id,
+      card.updatedAt,
+      card.tabId,
       card.title,
       card.description,
-      tabName,
-      ...parseTags(card.tags).map((tag) => `#${tag} ${tag}`),
-      ...card.items.flatMap((item) => [item.label, item.value])
-    ].join("\n");
-    const haystack = normalizeSearchText(rawHaystack);
-    return haystack.includes(q);
-  });
+      parseTags(card.tags).join(","),
+      sortedItems(card.items).map((item) => `${item.id}:${item.updatedAt}:${item.order}:${item.label}:${item.value}:${item.group || ""}:${item.type}:${item.secret ? 1 : 0}`).join("~")
+    ].join(":")).join("|")
+  ].join("::");
+}
+
+function cardSearchDocument(card, tabsById, id) {
+  const tab = tabsById.get(card.tabId)?.name || "";
+  const tags = parseTags(card.tags).join(" ");
+  const items = sortedItems(card.items).filter((item) => item.type !== "divider");
+  const labels = items.map((item) => item.label).join("\n");
+  const groups = items.map((item) => item.group).join("\n");
+  const values = items.map((item) => item.value).join("\n");
+  return {
+    id,
+    cardId: card.id,
+    title: card.title,
+    description: card.description,
+    tab,
+    tags,
+    groups,
+    labels,
+    values,
+    all: [card.title, card.description, tab, tags, groups, labels, values].join("\n")
+  };
+}
+
+function tokenizeSearchText(text) {
+  return normalizeSearchText(text)
+    .split(/[\n\r\s/#@._:;,()[\]{}<>=+'"`|\\!?$%&*~^]+/u)
+    .filter(Boolean);
+}
+
+function processSearchTerm(term) {
+  return normalizeSearchText(term);
+}
+
+function matchesFieldFilters(card, fields = {}, tabName = "") {
+  const items = sortedItems(card.items).filter((item) => item.type !== "divider");
+  return fieldTermsMatch(card.title, fields.title)
+    && fieldTermsMatch(card.description, fields.description)
+    && fieldTermsMatch(parseTags(card.tags).join("\n"), fields.tags)
+    && fieldTermsMatch(tabName, fields.tab)
+    && fieldTermsMatch(items.map((item) => item.group).join("\n"), fields.groups)
+    && fieldTermsMatch(items.map((item) => item.label).join("\n"), fields.labels)
+    && fieldTermsMatch(items.map((item) => item.value).join("\n"), fields.values);
+}
+
+function fieldTermsMatch(value, terms = []) {
+  if (!terms?.length) return true;
+  const haystack = normalizeSearchText(value);
+  return terms.every((term) => haystack.includes(term));
+}
+
+function scoreCardTextMatch(card, query, tokens, tabName) {
+  const fields = [
+    [card.title, 80],
+    [sortedItems(card.items).map((item) => item.group).join("\n"), 70],
+    [sortedItems(card.items).map((item) => item.label).join("\n"), 60],
+    [parseTags(card.tags).join(" "), 50],
+    [tabName, 40],
+    [sortedItems(card.items).map((item) => item.value).join("\n"), 30],
+    [card.description, 15]
+  ];
+  let score = 0;
+  let anyWholeMatch = false;
+  let allTokensSomewhere = !tokens.length;
+
+  for (const [value, weight] of fields) {
+    const text = normalizeSearchText(value);
+    if (!text) continue;
+    if (text === query) {
+      score += weight * 6;
+      anyWholeMatch = true;
+    } else if (text.startsWith(query)) {
+      score += weight * 4;
+      anyWholeMatch = true;
+    } else if (text.includes(query)) {
+      score += weight * 3;
+      anyWholeMatch = true;
+    }
+    const tokenHits = tokens.filter((token) => text.includes(token)).length;
+    if (tokenHits) score += tokenHits * weight;
+  }
+
+  if (tokens.length) {
+    const allText = normalizeSearchText(fields.map(([value]) => value).join("\n"));
+    allTokensSomewhere = tokens.every((token) => allText.includes(token));
+  }
+  return anyWholeMatch || allTokensSomewhere ? score : 0;
+}
+
+function compareCardsByRecency(a, b) {
+  if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
+  return new Date(b.updatedAt) - new Date(a.updatedAt);
 }
 
 export function normalizeActiveTabFilter(activeTabId) {

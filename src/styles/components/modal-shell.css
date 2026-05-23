@@ -19,24 +19,58 @@
   box-shadow: 0 22px 70px oklch(15% 0.02 78 / 0.22);
 }
 
+.modal-sheet:has(.editor),
+.modal-sheet:has(.quick-panel) {
+  width: min(calc(100vw - 24px), 560px);
+}
+
+.modal-sheet:has(.line-move-panel) {
+  width: min(calc(100vw - 24px), 540px);
+}
+
+.modal-sheet:has(.line-editor-panel),
+.modal-sheet:has(.tab-manager-panel),
+.modal-sheet:has(.tag-manager-panel) {
+  width: min(calc(100vw - 24px), 680px);
+}
+
 .modal-sheet .panel {
   position: static;
   top: auto;
   max-height: calc(100vh - 24px);
   overflow: auto;
+  overflow-x: hidden;
   border: 0;
   border-radius: 12px;
   box-shadow: none;
+}
+
+.modal-sheet .tab-manager-panel,
+.modal-sheet .tag-manager-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.modal-sheet .panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: calc(var(--panel-pad, 14px) * -1) calc(var(--panel-pad, 14px) * -1) 0;
+  padding: var(--panel-pad, 14px) var(--panel-pad, 14px) 10px;
+  border-bottom: 1px solid color-mix(in oklch, var(--line), transparent 30%);
+  background: color-mix(in oklch, var(--surface), transparent 0%);
 }
 
 .modal-sheet .editor {
   padding-bottom: 0;
 }
 
+.modal-sheet .sticky-actions,
 .modal-sheet .sticky-save {
   bottom: 0;
-  margin-inline: -14px;
-  padding: 10px 14px 14px;
+  margin-inline: calc(var(--panel-pad, 14px) * -1);
+  padding: 10px var(--panel-pad, 14px) var(--panel-pad, 14px);
   border-top: 1px solid var(--line);
 }
 

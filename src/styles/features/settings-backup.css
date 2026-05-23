@@ -3,6 +3,70 @@
   gap: 8px;
 }
 
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0 0 6px;
+  border-bottom: 1px solid color-mix(in oklch, var(--line), transparent 28%);
+  scrollbar-width: none;
+}
+
+.settings-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-tabs button {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 32px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  padding-inline: 12px;
+}
+
+.theme-preview-strip {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 26px;
+}
+
+.theme-dot {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 5px var(--surface);
+}
+
+.theme-dot.active {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.theme-warm { background: oklch(44% 0.12 42); }
+.theme-sage { background: oklch(43% 0.105 145); }
+.theme-sky { background: oklch(46% 0.12 238); }
+.theme-rose { background: oklch(47% 0.13 22); }
+.theme-slate { background: oklch(42% 0.075 255); }
+
+.settings-tabs button.active {
+  border-color: transparent;
+  background: color-mix(in oklch, var(--accent), var(--surface) 92%);
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 color-mix(in oklch, var(--accent), transparent 20%);
+}
+
+.settings-tab-body {
+  display: grid;
+  gap: 8px;
+}
+
 .settings-section {
   display: grid;
   gap: 7px;
@@ -18,6 +82,61 @@
   font-size: var(--font-md);
   line-height: 1.25;
   letter-spacing: 0;
+}
+
+.guide-list,
+.shortcut-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.guide-list div,
+.shortcut-grid div {
+  display: grid;
+  grid-template-columns: minmax(74px, 0.42fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in oklch, var(--line), transparent 18%);
+  border-radius: 7px;
+  background: color-mix(in oklch, var(--surface), transparent 6%);
+  font-size: var(--font-sm);
+}
+
+.guide-list strong {
+  color: var(--ink);
+}
+
+.guide-list span,
+.shortcut-grid span {
+  min-width: 0;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.shortcut-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shortcut-grid div {
+  grid-template-columns: minmax(88px, 0.58fr) minmax(0, 1fr);
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklch, var(--ink), var(--line) 70%);
+  border-radius: 5px;
+  background: color-mix(in oklch, var(--surface-2), var(--ink) 3%);
+  color: var(--ink);
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .settings-section label,
@@ -111,4 +230,100 @@
 
 .file-button input {
   display: none;
+}
+
+.import-sample-section {
+  gap: 8px;
+}
+
+.sample-copy-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.import-column-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.import-column-row {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid color-mix(in oklch, var(--line), transparent 20%);
+  border-radius: 7px;
+  background: color-mix(in oklch, var(--surface), transparent 5%);
+}
+
+.import-column-row code {
+  color: var(--accent);
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: var(--font-xs);
+  font-weight: 800;
+}
+
+.import-column-row span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--font-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.json-sample-preview {
+  display: grid;
+  gap: 6px;
+}
+
+.json-sample-preview summary {
+  color: var(--ink);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.json-sample-preview pre {
+  max-height: 170px;
+  margin: 0;
+  padding: 9px;
+  overflow: auto;
+  border: 1px solid color-mix(in oklch, var(--line), transparent 15%);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+}
+
+@media (max-width: 560px) {
+  .settings-tabs {
+    flex-wrap: wrap;
+  }
+
+  .settings-tabs button {
+    flex-basis: calc(50% - 4px);
+  }
+
+  .guide-list div,
+  .shortcut-grid,
+  .shortcut-grid div {
+    grid-template-columns: 1fr;
+  }
+
+  .backup-actions,
+  .sample-copy-actions,
+  .import-column-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shortcut-grid div {
+    gap: 5px;
+  }
+
+  kbd {
+    justify-self: start;
+  }
 }

@@ -1,0 +1,31 @@
+.tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  margin-top: -5px;
+}
+
+.tag-suggestions > span {
+  color: var(--muted);
+  font-size: var(--font-xs);
+  font-weight: 800;
+}
+
+.tag-suggestions button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-height: 24px;
+  padding-inline: 7px;
+  border-color: color-mix(in oklch, var(--accent), var(--line) 62%);
+  background: color-mix(in oklch, var(--accent), var(--surface) 91%);
+  color: var(--accent-strong);
+  font-size: var(--font-xs);
+}
+
+.tag-suggestions small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
