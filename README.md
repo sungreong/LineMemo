@@ -15,26 +15,31 @@ LineMemo Lite is a tiny Windows-first local copy launcher. It is designed for qu
 - Quick input panel that turns pasted lines into a new card
 - New-card drafts are saved locally and can be restored after restarting the app
 - Inline/table quick add for adding one line directly into the current view
-- Card editor with paste parsing, line reorder/delete, divider support, labels, value types, and secret flags
+- Card editor with paste parsing, line reorder/delete, divider support, labels, value types, and per-line validity dates
 - One-click copy for a line, a card, a block between dividers, selected lines, or label-included output
 - Right-click line menu for copy, edit, move, grouping, selection, and delete actions
 - Multi-select copy bar that respects the current search and view order
 - Favorite cards, card collapse/expand, and per-card line preview
-- Secret masking with temporary reveal and optional clipboard auto-clear
+- Per-line validity dates with optional expiry reminders
+- Optional clipboard auto-clear after copying
+- Optional save confirmation for changed card and line edits
 - App screen lock with PBKDF2-hashed password, manual lock, and inactivity relock
 - Duplicate value warning before adding the same value again, with a jump-to-existing option
 - JSON backup export/import, CSV/TSV add import, import samples, and data path copy from settings
+- Configurable data file location from Settings > Data
 - Local-only storage with no cloud sync or telemetry
 
 ## Security Note
 
-LineMemo Lite stores data as plain JSON on your PC. Secret values are masked in the UI, and the app lock hides the interface, but data is not encrypted on disk. Do not store highly sensitive production credentials unless you accept that local plaintext risk.
+LineMemo Lite stores data as plain JSON on your PC. The app lock hides the interface, but data is not encrypted on disk. Do not store highly sensitive production credentials unless you accept that local plaintext risk.
 
 Default data path:
 
 ```text
 %APPDATA%\LineMemoLite\data.json
 ```
+
+Users can move the active data file from Settings > Data by entering a folder or `.json` file path. The path pointer itself is stored under `%APPDATA%\LineMemoLite\storage.json`.
 
 ## Install From A Local Build
 
@@ -58,18 +63,18 @@ Settings > Data supports two import paths:
 CSV/TSV headers:
 
 ```text
-tab,title,tags,description,label,value,type,secret,group
+tab,title,tags,description,label,value,type,secret,expiresAt,group
 ```
 
 Example:
 
 ```csv
-tab,title,tags,description,label,value,type,secret,group
-프롬프트,문제 보고 공식,"문제보고, 프롬프트",반복 보고 문구,현재 문제,"현재 [문제]가 있습니다.",text,false,보고세트
-프롬프트,문제 보고 공식,"문제보고, 프롬프트",반복 보고 문구,요청,"[A안] 또는 [B안] 중 결정이 필요합니다.",text,false,보고세트
+tab,title,tags,description,label,value,type,secret,expiresAt,group
+프롬프트,문제 보고 공식,"문제보고, 프롬프트",반복 보고 문구,현재 문제,"현재 [문제]가 있습니다.",text,false,2026-12-31,보고세트
+프롬프트,문제 보고 공식,"문제보고, 프롬프트",반복 보고 문구,요청,"[A안] 또는 [B안] 중 결정이 필요합니다.",text,false,2026-12-31,보고세트
 ```
 
-`type` can be `text`, `url`, `command`, `code`, `image`, `divider`, or `note`. `secret` accepts `true`/`false`; `group` is optional and links related lines into the same copy set.
+`type` can be `text`, `url`, `command`, `code`, `image`, `divider`, or `note`. `expiresAt` uses `YYYY-MM-DD`; `group` is optional and links related lines into the same copy set. `secret` is kept for older backups and accepts `true`/`false`.
 
 ## Development Setup
 

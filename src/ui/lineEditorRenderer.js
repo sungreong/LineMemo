@@ -24,9 +24,9 @@ export function renderLineEditorModal(state, tabNameForCard) {
         <label>라벨<input data-line-edit-field="label" value="${escapeAttr(draft.label || "")}" placeholder="라벨" /></label>
         <label>타입<select data-line-edit-field="type">${ITEM_TYPES.map((type) => `<option value="${type}" ${type === draft.type ? "selected" : ""}>${type}</option>`).join("")}</select></label>
         <label class="line-editor-group">세트<input data-line-edit-field="group" value="${escapeAttr(draft.group || "")}" placeholder="예: MS Graph 인증" /></label>
+        <label>유효기간<input type="date" data-line-edit-field="expiresAt" value="${escapeAttr(draft.expiresAt || "")}" /></label>
         <label class="line-editor-value">값<textarea data-line-edit-value data-line-edit-field="value" rows="9" placeholder="복사할 값" ${draft.type === "divider" ? "readonly" : ""}>${escapeHtml(draft.value || "")}</textarea></label>
         ${draft.type === "image" ? `<div class="line-editor-preview">${renderLineValueHtml(draft, { revealed: true })}</div>` : ""}
-        <label class="check"><input type="checkbox" data-line-edit-field="secret" ${draft.secret ? "checked" : ""} /> 화면에서 가리기</label>
       </div>
       <details class="line-history-details">
         <summary>마지막 수정 · ${escapeHtml(lineUpdated)} · 기록 보기</summary>

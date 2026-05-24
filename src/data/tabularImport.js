@@ -1,4 +1,4 @@
-import { ITEM_TYPES, normalizeData, nowIso, parseTags, uid } from "../domain.js";
+import { ITEM_TYPES, normalizeData, normalizeDateOnly, nowIso, parseTags, uid } from "../domain.js";
 
 const COLUMN_ALIASES = {
   "탭": "tab",
@@ -12,6 +12,8 @@ const COLUMN_ALIASES = {
   "타입": "type",
   "유형": "type",
   "비밀": "secret",
+  "유효기간": "expiresAt",
+  "만료일": "expiresAt",
   "묶음": "group",
   "세트": "group"
 };
@@ -132,6 +134,7 @@ export function mergeTabularImport(data, text) {
       value,
       type,
       secret: isSecret(record.secret),
+      expiresAt: normalizeDateOnly(record.expiresAt || record.validUntil || record.expiryDate),
       group: record.group || "",
       order: card.items.length + 1,
       createdAt: timestamp,

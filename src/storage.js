@@ -27,6 +27,21 @@ export async function getDataFilePath() {
   return invoke("get_data_file_path");
 }
 
+export async function getStoragePathStatus() {
+  if (!isTauri) return { path: "브라우저 미리보기: localStorage", defaultPath: "브라우저 미리보기: localStorage", custom: false };
+  return invoke("get_storage_path_status");
+}
+
+export async function setDataFilePath(path, data) {
+  if (!isTauri) throw new Error("저장 위치 변경은 설치된 앱에서 사용할 수 있습니다.");
+  return invoke("set_data_file_path", { path, data: normalizeData(data) });
+}
+
+export async function resetDataFilePath(data) {
+  if (!isTauri) throw new Error("저장 위치 변경은 설치된 앱에서 사용할 수 있습니다.");
+  return invoke("reset_data_file_path", { data: normalizeData(data) });
+}
+
 export async function importDataFromJson(jsonText) {
   const parsed = normalizeData(JSON.parse(jsonText));
   if (!isTauri) {

@@ -1,5 +1,6 @@
 import { sortedItems } from "../domain.js";
 import { lineTypeLabel } from "./lineValueView.js";
+import { renderExpiryBadge } from "./expiryBadge.js";
 import { escapeAttr, escapeHtml } from "./utils.js";
 
 export function lineGroupName(item) {
@@ -22,6 +23,7 @@ export function renderLineLabelHtml(card, item) {
   const group = lineGroupName(item);
   return `
     <span class="line-label-text">${label}</span>
+    ${renderExpiryBadge(item)}
     ${group ? `<span class="line-group-chip" title="복사 세트: ${escapeAttr(group)}">${escapeHtml(group)}${groupItems.length > 1 ? ` · ${groupItems.length}` : ""}</span>` : ""}
   `;
 }

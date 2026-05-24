@@ -7,6 +7,7 @@ export const EXCEL_IMPORT_COLUMNS = [
   ["value", "현재 [문제]가 있습니다. 이 상태로 가면 [리스크]가 생깁니다."],
   ["type", "text"],
   ["secret", "false"],
+  ["expiresAt", "2026-12-31"],
   ["group", "보고세트"]
 ];
 
@@ -20,6 +21,7 @@ export const IMPORT_SAMPLE_ROWS = [
     value: "현재 [문제]가 있습니다. 이 상태로 가면 [리스크]가 생깁니다.",
     type: "text",
     secret: "false",
+    expiresAt: "2026-12-31",
     group: "보고세트"
   },
   {
@@ -31,6 +33,7 @@ export const IMPORT_SAMPLE_ROWS = [
     value: "[A안] 또는 [B안] 중 결정이 필요합니다.",
     type: "text",
     secret: "false",
+    expiresAt: "2026-12-31",
     group: "보고세트"
   }
 ];
@@ -51,6 +54,7 @@ export const IMPORT_SAMPLE_JSON = {
           value: "현재 [문제]가 있습니다. 이 상태로 가면 [리스크]가 생깁니다.",
           type: "text",
           secret: false,
+          expiresAt: "2026-12-31",
           group: "보고세트",
           order: 1
         },
@@ -60,6 +64,7 @@ export const IMPORT_SAMPLE_JSON = {
           value: "[A안] 또는 [B안] 중 결정이 필요합니다.",
           type: "text",
           secret: false,
+          expiresAt: "2026-12-31",
           group: "보고세트",
           order: 2
         }

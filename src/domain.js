@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   clipboardClearSeconds: 30,
   secretRevealSeconds: 10,
   confirmBeforeDelete: true,
+  confirmBeforeSave: true,
   cardDraftAutosave: true,
   lineContextMenu: true,
   rightClickCopy: false,
@@ -30,6 +31,10 @@ export const DEFAULT_SETTINGS = {
   darkMode: false,
   minimizeToTray: false,
   launchOnStartup: false,
+  expiryNotifications: false,
+  expiryNotificationIntervalHours: 24,
+  expiryNotifyBeforeDays: 7,
+  expiryNotificationLastRunAt: "",
   acknowledgedPlainTextWarning: false,
   lockEnabled: false,
   lockPasswordHash: "",
@@ -167,6 +172,13 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
+export function normalizeDateOnly(value) {
+  const text = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return "";
+  const date = new Date(`${text}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? "" : text;
+}
+
 export function normalizeData(input) {
   const base = createEmptyData();
   const data = input && typeof input === "object" ? input : base;
@@ -182,6 +194,8 @@ function normalizeSettings(settings) {
   const merged = { ...DEFAULT_SETTINGS, ...(settings || {}) };
   const timeout = Number(merged.lockTimeoutMinutes);
   const iterations = Number(merged.lockPasswordIterations);
+  const intervalHours = Number(merged.expiryNotificationIntervalHours);
+  const notifyBeforeDays = Number(merged.expiryNotifyBeforeDays);
   const hasPassword = Boolean(merged.lockPasswordHash && merged.lockPasswordSalt);
   const fontSize = ["small", "normal", "large"].includes(merged.fontSize) ? merged.fontSize : "normal";
   const colorTheme = ["warm", "sage", "sky", "rose", "slate"].includes(merged.colorTheme) ? merged.colorTheme : "warm";
@@ -190,6 +204,7 @@ function normalizeSettings(settings) {
     rememberLastTab: Boolean(merged.rememberLastTab),
     autoClearClipboard: Boolean(merged.autoClearClipboard),
     confirmBeforeDelete: merged.confirmBeforeDelete !== false && merged.confirmBeforeDelete !== "false",
+    confirmBeforeSave: merged.confirmBeforeSave !== false && merged.confirmBeforeSave !== "false",
     cardDraftAutosave: merged.cardDraftAutosave !== false && merged.cardDraftAutosave !== "false",
     lineContextMenu: merged.lineContextMenu !== false && merged.lineContextMenu !== "false",
     rightClickCopy: Boolean(merged.rightClickCopy),
@@ -199,6 +214,10 @@ function normalizeSettings(settings) {
     darkMode: Boolean(merged.darkMode),
     minimizeToTray: Boolean(merged.minimizeToTray),
     launchOnStartup: Boolean(merged.launchOnStartup),
+    expiryNotifications: Boolean(merged.expiryNotifications),
+    expiryNotificationIntervalHours: Number.isFinite(intervalHours) ? Math.min(Math.max(intervalHours, 1), 168) : 24,
+    expiryNotifyBeforeDays: Number.isFinite(notifyBeforeDays) ? Math.min(Math.max(notifyBeforeDays, 0), 90) : 7,
+    expiryNotificationLastRunAt: String(merged.expiryNotificationLastRunAt || ""),
     acknowledgedPlainTextWarning: Boolean(merged.acknowledgedPlainTextWarning),
     clipboardClearSeconds: Number.isFinite(Number(merged.clipboardClearSeconds)) ? Number(merged.clipboardClearSeconds) : 30,
     secretRevealSeconds: Number.isFinite(Number(merged.secretRevealSeconds)) ? Number(merged.secretRevealSeconds) : 10,
@@ -255,6 +274,7 @@ function normalizeLine(item, index) {
     group: String(item.group || item.groupId || item.relation || "").trim(),
     type,
     secret: Boolean(item.secret),
+    expiresAt: normalizeDateOnly(item.expiresAt || item.expiryDate || item.validUntil),
     order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1,
     createdAt: String(item.createdAt || ""),
     updatedAt: String(item.updatedAt || item.createdAt || "")
@@ -290,6 +310,12 @@ export function applyBaseLabelToItems(items, baseLabel) {
     if (String(item.label || "").trim()) return item;
     return { ...item, label: numbered ? `${base}.${index}` : base };
   });
+}
+
+export function applyExpiryToItems(items, expiresAt) {
+  const normalized = normalizeDateOnly(expiresAt);
+  if (!normalized) return items;
+  return items.map((item) => (item.type === "divider" ? item : { ...item, expiresAt: normalized }));
 }
 
 export function splitPasteText(text, options = {}) {
@@ -333,6 +359,7 @@ function makeItemsFromValues(values) {
         value: parsed.value,
         type,
         secret: false,
+        expiresAt: "",
         order: index + 1,
         createdAt: time,
         updatedAt: time
@@ -414,7 +441,7 @@ export function mergeLineTimestamps(nextItems, previousItems, time = nowIso()) {
   return nextItems.map((item, index) => {
     const previous = previousById.get(item.id);
     if (!previous) return stampLine(item, time, index + 1);
-    const changed = ["label", "value", "group", "type", "secret"].some((key) => item[key] !== previous[key]);
+    const changed = ["label", "value", "group", "type", "secret", "expiresAt"].some((key) => item[key] !== previous[key]);
     return {
       ...item,
       order: index + 1,
@@ -556,7 +583,7 @@ function searchIndexSignature(data) {
       card.title,
       card.description,
       parseTags(card.tags).join(","),
-      sortedItems(card.items).map((item) => `${item.id}:${item.updatedAt}:${item.order}:${item.label}:${item.value}:${item.group || ""}:${item.type}:${item.secret ? 1 : 0}`).join("~")
+      sortedItems(card.items).map((item) => `${item.id}:${item.updatedAt}:${item.order}:${item.label}:${item.value}:${item.group || ""}:${item.type}:${item.secret ? 1 : 0}:${item.expiresAt || ""}`).join("~")
     ].join(":")).join("|")
   ].join("::");
 }

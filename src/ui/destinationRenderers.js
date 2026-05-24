@@ -112,6 +112,9 @@ export function renderQuickPastePanel(state, renderTagPreview) {
             <label class="option-field">대표 이름
               <input name="quickBaseLabel" data-draft="quick" data-draft-field="baseLabel" value="${escapeAttr(draft.baseLabel || "")}" placeholder="A, 서버, 계정" />
             </label>
+            <label class="option-field">유효기간
+              <input type="date" name="quickExpiresAt" data-draft="quick" data-draft-field="expiresAt" value="${escapeAttr(draft.expiresAt || "")}" />
+            </label>
           </div>
           ${patternTools}
         </div>

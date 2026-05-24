@@ -2,29 +2,29 @@ import { DEFAULT_SPLIT_PATTERN } from "../domain.js";
 
 export function createEmptyDrafts() {
   return {
-    quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
-    tableAdd: { cardId: "", lineLabel: "", lineValue: "", lineSecret: false },
+    quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
+    tableAdd: { cardId: "", lineLabel: "", lineValue: "", lineExpiresAt: "" },
     quickLines: {}
   };
 }
 
 export function quickLineDraft(state, cardId) {
   if (!state.drafts.quickLines[cardId]) {
-    state.drafts.quickLines[cardId] = { lineLabel: "", lineValue: "", lineSecret: false };
+    state.drafts.quickLines[cardId] = { lineLabel: "", lineValue: "", lineExpiresAt: "" };
   }
   return state.drafts.quickLines[cardId];
 }
 
 export function clearQuickDraft(state) {
-  state.drafts.quick = { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN };
+  state.drafts.quick = { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN };
 }
 
 export function clearTableAddDraft(state, cardId = "") {
-  state.drafts.tableAdd = { cardId, lineLabel: "", lineValue: "", lineSecret: false };
+  state.drafts.tableAdd = { cardId, lineLabel: "", lineValue: "", lineExpiresAt: "" };
 }
 
 export function clearQuickLineDraft(state, cardId) {
-  state.drafts.quickLines[cardId] = { lineLabel: "", lineValue: "", lineSecret: false };
+  state.drafts.quickLines[cardId] = { lineLabel: "", lineValue: "", lineExpiresAt: "" };
 }
 
 export function syncDraftField(target, state) {

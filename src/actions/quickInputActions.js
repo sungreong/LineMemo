@@ -1,4 +1,4 @@
-import { applyBaseLabelToItems, makeCard, nowIso, parsePasteItems, parseTags, sortedItems, stampLine } from "../domain.js";
+import { applyBaseLabelToItems, applyExpiryToItems, makeCard, nowIso, parsePasteItems, parseTags, sortedItems, stampLine } from "../domain.js";
 import { defaultTabId, syncActiveTabs } from "../state/tabs.js";
 
 function tabNameForCard(state, card) {
@@ -34,10 +34,10 @@ export function createQuickInputActions(ctx) {
 
   function submitQuickInput(fields) {
     const raw = String(fields.quickText || "");
-    const items = applyBaseLabelToItems(parsePasteItems(raw, {
+    const items = applyExpiryToItems(applyBaseLabelToItems(parsePasteItems(raw, {
       splitMode: fields.quickSplitMode,
       splitPattern: fields.quickSplitPattern
-    }), fields.quickBaseLabel);
+    }), fields.quickBaseLabel), fields.quickExpiresAt);
     if (!items.length) {
       notify("붙여넣을 줄이 없습니다");
       return false;
@@ -82,6 +82,7 @@ export function createQuickInputActions(ctx) {
       quickTitle: formData.get("quickTitle"),
       quickTags: formData.get("quickTags"),
       quickBaseLabel: formData.get("quickBaseLabel"),
+      quickExpiresAt: formData.get("quickExpiresAt"),
       quickSplitMode: formData.get("quickSplitMode"),
       quickSplitPattern: formData.get("quickSplitPattern"),
       targetCardId: formData.get("targetCardId")

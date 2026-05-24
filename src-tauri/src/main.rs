@@ -19,6 +19,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 const APP_DIR_NAME: &str = "LineMemoLite";
 const DATA_FILE_NAME: &str = "data.json";
+const STORAGE_CONFIG_FILE_NAME: &str = "storage.json";
 
 #[derive(Default)]
 struct DesktopPreferences {
@@ -39,13 +40,63 @@ struct DesktopPreferencesStatus {
     launch_on_startup: bool,
 }
 
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StorageConfig {
+    data_file_path: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StoragePathStatus {
+    path: String,
+    default_path: String,
+    custom: bool,
+}
+
 fn app_dir() -> Result<PathBuf, String> {
     let appdata = env::var_os("APPDATA").ok_or("APPDATA environment variable is not available")?;
     Ok(PathBuf::from(appdata).join(APP_DIR_NAME))
 }
 
-fn data_path() -> Result<PathBuf, String> {
+fn default_data_path() -> Result<PathBuf, String> {
     Ok(app_dir()?.join(DATA_FILE_NAME))
+}
+
+fn storage_config_path() -> Result<PathBuf, String> {
+    Ok(app_dir()?.join(STORAGE_CONFIG_FILE_NAME))
+}
+
+fn read_storage_config() -> Result<StorageConfig, String> {
+    let path = storage_config_path()?;
+    if !path.exists() {
+        return Ok(StorageConfig::default());
+    }
+    let text = fs::read_to_string(path).map_err(error_to_string)?;
+    serde_json::from_str(&text).map_err(error_to_string)
+}
+
+fn write_storage_config(path: Option<&Path>) -> Result<(), String> {
+    let config_path = storage_config_path()?;
+    ensure_parent(&config_path)?;
+    if let Some(path) = path {
+        let config = StorageConfig {
+            data_file_path: Some(path.display().to_string()),
+        };
+        fs::write(config_path, serde_json::to_string_pretty(&config).map_err(error_to_string)?)
+            .map_err(error_to_string)?;
+    } else if config_path.exists() {
+        fs::remove_file(config_path).map_err(error_to_string)?;
+    }
+    Ok(())
+}
+
+fn configured_data_path() -> Result<Option<PathBuf>, String> {
+    Ok(read_storage_config()?.data_file_path.map(PathBuf::from))
+}
+
+fn data_path() -> Result<PathBuf, String> {
+    Ok(configured_data_path()?.unwrap_or(default_data_path()?))
 }
 
 fn backup_dir() -> Result<PathBuf, String> {
@@ -75,11 +126,16 @@ fn default_data() -> Value {
             "clipboardClearSeconds": 30,
             "secretRevealSeconds": 10,
             "confirmBeforeDelete": true,
+            "confirmBeforeSave": true,
             "fontSize": "normal",
             "colorTheme": "warm",
             "darkMode": false,
             "minimizeToTray": false,
             "launchOnStartup": false,
+            "expiryNotifications": false,
+            "expiryNotificationIntervalHours": 24,
+            "expiryNotifyBeforeDays": 7,
+            "expiryNotificationLastRunAt": "",
             "acknowledgedPlainTextWarning": false,
             "lockEnabled": false,
             "lockPasswordHash": "",
@@ -126,19 +182,54 @@ fn backup_existing_file(path: &Path) -> Result<Option<PathBuf>, String> {
     Ok(Some(backup))
 }
 
-fn write_data_atomically(data: &Value) -> Result<(), String> {
+fn write_data_to_path(path: &Path, data: &Value) -> Result<(), String> {
     validate_data(data)?;
-    let path = data_path()?;
-    ensure_parent(&path)?;
-    let tmp_path = path.with_file_name("data.tmp.json");
+    ensure_parent(path)?;
+    let tmp_name = format!(
+        "{}.tmp",
+        path.file_name()
+            .ok_or("저장 파일 이름을 확인할 수 없습니다.")?
+            .to_string_lossy()
+    );
+    let tmp_path = path.with_file_name(tmp_name);
     let text = serde_json::to_string_pretty(data).map_err(error_to_string)?;
     fs::write(&tmp_path, text).map_err(error_to_string)?;
-    backup_existing_file(&path)?;
+    backup_existing_file(path)?;
     if path.exists() {
-        fs::remove_file(&path).map_err(error_to_string)?;
+        fs::remove_file(path).map_err(error_to_string)?;
     }
-    fs::rename(&tmp_path, &path).map_err(error_to_string)?;
+    fs::rename(&tmp_path, path).map_err(error_to_string)?;
     Ok(())
+}
+
+fn write_data_atomically(data: &Value) -> Result<(), String> {
+    write_data_to_path(&data_path()?, data)
+}
+
+fn storage_path_status() -> Result<StoragePathStatus, String> {
+    let default_path = default_data_path()?;
+    let active_path = data_path()?;
+    let custom = configured_data_path()?.is_some();
+    Ok(StoragePathStatus {
+        path: active_path.display().to_string(),
+        default_path: default_path.display().to_string(),
+        custom,
+    })
+}
+
+fn resolve_user_data_path(input: &str) -> Result<PathBuf, String> {
+    let text = input.trim();
+    if text.is_empty() {
+        return Err("저장 위치를 입력하세요.".into());
+    }
+    let mut path = PathBuf::from(text);
+    if !path.is_absolute() {
+        return Err("드라이브를 포함한 전체 경로를 입력하세요.".into());
+    }
+    if (path.exists() && path.is_dir()) || path.extension().is_none() {
+        path = path.join(DATA_FILE_NAME);
+    }
+    Ok(path)
 }
 
 fn read_or_seed_data() -> Result<Value, String> {
@@ -157,6 +248,11 @@ fn read_or_seed_data() -> Result<Value, String> {
 #[tauri::command]
 fn get_data_file_path() -> Result<String, String> {
     Ok(data_path()?.display().to_string())
+}
+
+#[tauri::command]
+fn get_storage_path_status() -> Result<StoragePathStatus, String> {
+    storage_path_status()
 }
 
 #[tauri::command]
@@ -183,6 +279,24 @@ fn import_data(data: Value) -> Result<Value, String> {
     backup_existing_file(&path)?;
     write_data_atomically(&data)?;
     Ok(data)
+}
+
+#[tauri::command]
+fn set_data_file_path(path: String, data: Value) -> Result<StoragePathStatus, String> {
+    validate_data(&data)?;
+    let target = resolve_user_data_path(&path)?;
+    write_data_to_path(&target, &data)?;
+    write_storage_config(Some(&target))?;
+    storage_path_status()
+}
+
+#[tauri::command]
+fn reset_data_file_path(data: Value) -> Result<StoragePathStatus, String> {
+    validate_data(&data)?;
+    let target = default_data_path()?;
+    write_data_to_path(&target, &data)?;
+    write_storage_config(None)?;
+    storage_path_status()
 }
 
 #[tauri::command]
@@ -239,6 +353,7 @@ fn main() {
         .manage(Mutex::new(DesktopPreferences::default()))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--startup"]),
@@ -299,10 +414,13 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_data_file_path,
+            get_storage_path_status,
             load_data,
             save_data,
             export_data,
             import_data,
+            set_data_file_path,
+            reset_data_file_path,
             set_desktop_preferences,
             get_desktop_preferences
         ])

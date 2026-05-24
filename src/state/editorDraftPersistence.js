@@ -15,7 +15,8 @@ function defaultDraft() {
     description: "",
     quickValues: "",
     quickSplitMode: "line",
-    quickSplitPattern: DEFAULT_SPLIT_PATTERN
+    quickSplitPattern: DEFAULT_SPLIT_PATTERN,
+    quickExpiresAt: ""
   };
 }
 
@@ -28,7 +29,8 @@ function normalizeDraft(draft = {}) {
     description: String(draft.description || ""),
     quickValues: String(draft.quickValues || ""),
     quickSplitMode: draft.quickSplitMode === "pattern" ? "pattern" : "line",
-    quickSplitPattern: String(draft.quickSplitPattern || DEFAULT_SPLIT_PATTERN)
+    quickSplitPattern: String(draft.quickSplitPattern || DEFAULT_SPLIT_PATTERN),
+    quickExpiresAt: String(draft.quickExpiresAt || "")
   };
 }
 
@@ -41,6 +43,7 @@ function normalizeItems(items = []) {
       group: String(item?.group || ""),
       type: ITEM_TYPES.includes(item?.type) ? item.type : "text",
       secret: Boolean(item?.secret),
+      expiresAt: String(item?.expiresAt || ""),
       order: Number.isFinite(Number(item?.order)) ? Number(item.order) : index + 1,
       createdAt: String(item?.createdAt || ""),
       updatedAt: String(item?.updatedAt || "")
@@ -51,7 +54,7 @@ function normalizeItems(items = []) {
 function hasContent(draft, items) {
   const values = [draft.title, draft.tags, draft.description, draft.quickValues, draft.quickSplitMode === "pattern" ? draft.quickSplitPattern : ""];
   return values.some((value) => String(value || "").trim())
-    || items.some((item) => String(item.label || item.value || item.group || "").trim() || item.secret);
+    || items.some((item) => String(item.label || item.value || item.group || item.expiresAt || "").trim() || item.secret);
 }
 
 function setStoredSnapshot(snapshot) {

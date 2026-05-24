@@ -92,7 +92,10 @@ export function createUiActionHandler(deps) {
     setViewMode,
     focusTableAdd,
     handleExport,
+    handleDataPathChange = async () => {},
+    handleDataPathReset = async () => {},
     lockApp,
+    checkExpiryNotifications = async () => {},
     cancelDeleteConfirm = () => {},
     confirmPendingDelete = () => {}
   } = deps;
@@ -265,6 +268,9 @@ export function createUiActionHandler(deps) {
     if (action === "copy-import-json") await copyText(importSampleJsonText(), "settings:import-json");
     if (action === "copy-split-pattern") await copySplitPattern(element.closest("form"));
     if (action === "insert-split-pattern") insertSplitPattern(element.closest("form"), element);
+    if (action === "set-data-path") await handleDataPathChange();
+    if (action === "reset-data-path") await handleDataPathReset();
     if (action === "export") await handleExport();
+    if (action === "check-expiry-notifications") await checkExpiryNotifications();
   };
 }

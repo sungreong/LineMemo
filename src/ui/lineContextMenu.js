@@ -50,7 +50,6 @@ export function renderLineContextMenu(state) {
       ${menuButton("edit", "pencil", "상세 수정", card, item)}
       ${menuButton("move", "move", "다른 카드로 이동", card, item)}
       ${menuButton("select", selected ? "checkSquare" : "square", selected ? "선택 해제" : "선택", card, item)}
-      ${menuButton("secret", item.secret ? "eye" : "key", item.secret ? "비밀 표시 해제" : "비밀값으로 표시", card, item)}
       ${item.secret ? menuButton("reveal", state.revealed.has(item.id) ? "eyeOff" : "eye", state.revealed.has(item.id) ? "다시 숨기기" : "잠시 보기", card, item) : ""}
       ${related.length > 1 ? `
         <div class="line-context-divider"></div>

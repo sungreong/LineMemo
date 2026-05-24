@@ -131,10 +131,6 @@
   padding: 5px 7px;
 }
 
-.line-edit-row .line-secret {
-  white-space: nowrap;
-}
-
 .preview-row:hover {
   background: var(--surface-2);
 }
@@ -205,6 +201,34 @@
   min-width: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.line-expiry-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 16px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 60%);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--accent), var(--surface) 91%);
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.line-expiry-chip.expired,
+.expired-line .line-expiry-chip {
+  border-color: color-mix(in oklch, var(--danger), var(--line) 45%);
+  background: color-mix(in oklch, var(--danger), var(--surface) 88%);
+  color: var(--danger);
+}
+
+.expiring-line .line-expiry-chip,
+.line-expiry-chip.today {
+  border-color: color-mix(in oklch, var(--warning), var(--line) 40%);
+  background: color-mix(in oklch, var(--warning), var(--surface) 86%);
+  color: color-mix(in oklch, var(--warning), var(--ink) 35%);
 }
 
 .line-label-text {
@@ -344,6 +368,10 @@
   color: var(--danger);
 }
 
+.expired-line .line-value {
+  color: color-mix(in oklch, var(--danger), var(--ink) 20%);
+}
+
 .tiny {
   min-height: 24px;
   padding: 0 7px;
@@ -390,6 +418,10 @@
   background: var(--field-bg);
 }
 
+.expiry-input {
+  min-width: 118px;
+}
+
 .quick-line-form textarea {
   max-height: 120px;
   line-height: 1.35;
@@ -402,21 +434,6 @@
 
 .optional-label:focus {
   opacity: 1;
-}
-
-.secret-toggle {
-  display: inline-flex;
-  flex-direction: row;
-  gap: 5px;
-  align-items: center;
-  min-height: 30px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.secret-toggle input {
-  width: auto;
-  margin: 0;
 }
 
 .card-foot {

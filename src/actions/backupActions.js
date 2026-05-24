@@ -1,8 +1,13 @@
 import { mergeTabularImport } from "../data/tabularImport.js";
-import { exportDataJson, importDataFromJson, saveData } from "../storage.js";
+import { exportDataJson, importDataFromJson, resetDataFilePath, saveData, setDataFilePath } from "../storage.js";
 import { syncActiveTabs } from "../state/tabs.js";
 
 export function createBackupActions({ state, notify, render }) {
+  function applyStorageStatus(status) {
+    state.storagePath = status;
+    state.dataPath = status.path;
+  }
+
   async function handleImport(file) {
     if (!file) return;
     const isJson = /\.json$/i.test(file.name || "");
@@ -39,5 +44,29 @@ export function createBackupActions({ state, notify, render }) {
     URL.revokeObjectURL(url);
   }
 
-  return { handleImport, handleExport };
+  async function handleDataPathChange() {
+    const current = state.storagePath?.path || state.dataPath;
+    const nextPath = prompt("새 저장 위치를 입력하세요. 폴더 또는 .json 파일 전체 경로를 사용할 수 있습니다.", current);
+    if (nextPath === null) return;
+    try {
+      applyStorageStatus(await setDataFilePath(nextPath, state.data));
+      notify("저장 위치 변경됨");
+      render();
+    } catch (error) {
+      notify(`위치 변경 실패: ${error.message}`);
+    }
+  }
+
+  async function handleDataPathReset() {
+    if (!confirm("현재 데이터를 기본 저장 위치로 저장하고 기본 위치를 다시 사용할까요?")) return;
+    try {
+      applyStorageStatus(await resetDataFilePath(state.data));
+      notify("기본 저장 위치로 변경됨");
+      render();
+    } catch (error) {
+      notify(`기본 위치 변경 실패: ${error.message}`);
+    }
+  }
+
+  return { handleImport, handleExport, handleDataPathChange, handleDataPathReset };
 }

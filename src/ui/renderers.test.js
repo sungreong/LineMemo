@@ -364,7 +364,7 @@ describe("createRenderers", () => {
       editingCardId: null,
       editorDraft: null,
       editingLineKey: "card-legacy:line-legacy",
-      lineEditDraft: { label: "라벨", value: "값", type: "text", secret: false },
+      lineEditDraft: { label: "라벨", value: "값", type: "text", secret: false, expiresAt: "2026-12-31" },
       editingCellKey: null,
       cellEditValue: "",
       editorItems: [],
@@ -394,7 +394,8 @@ describe("createRenderers", () => {
     expect(app.innerHTML).toContain("기록 보기");
     expect(app.innerHTML).not.toContain("<details class=\"line-history-details\" open");
     expect(app.innerHTML).toContain('rows="9"');
-    expect(app.innerHTML).toContain("화면에서 가리기");
+    expect(app.innerHTML).toContain("유효기간");
+    expect(app.innerHTML).toContain("2026-12-31");
     expect(app.innerHTML).toContain("카드 생성");
     expect(app.innerHTML).toContain("2026-05-05");
     expect(app.innerHTML).toContain("기록 없음");
@@ -430,8 +431,8 @@ describe("createRenderers", () => {
       viewMode: "table",
       showTableAdd: true,
       drafts: {
-        quick: { title: "드래프트", tags: "api", text: "one\ntwo", targetCardId: "", baseLabel: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
-        tableAdd: { cardId: data.cards[0].id, lineLabel: "pw", lineValue: "typed-value", lineSecret: true },
+        quick: { title: "드래프트", tags: "api", text: "one\ntwo", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
+        tableAdd: { cardId: data.cards[0].id, lineLabel: "pw", lineValue: "typed-value", lineExpiresAt: "2026-12-31" },
         quickLines: {}
       }
     });
@@ -451,7 +452,8 @@ describe("createRenderers", () => {
     render();
     expect(app.innerHTML).toContain('name="lineValue"');
     expect(app.innerHTML).toContain(">typed-value</textarea>");
-    expect(app.innerHTML).toContain("checked");
+    expect(app.innerHTML).toContain('name="lineExpiresAt"');
+    expect(app.innerHTML).toContain("2026-12-31");
     state.activePanel = "quick";
     render();
     expect(app.innerHTML).toContain("one\ntwo");
@@ -496,8 +498,8 @@ describe("createRenderers", () => {
       viewMode: "table",
       showTableAdd: true,
       drafts: {
-        quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
-        tableAdd: { cardId: card.id, lineLabel: "", lineValue: "alpha\n  beta", lineSecret: false },
+        quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
+        tableAdd: { cardId: card.id, lineLabel: "", lineValue: "alpha\n  beta", lineExpiresAt: "" },
         quickLines: {}
       }
     });
@@ -545,6 +547,47 @@ describe("createRenderers", () => {
     for (const key of ["Ctrl+N", "Ctrl+Shift+N", "Ctrl+Shift+A", "Ctrl+Shift+L", "Alt+1 / 2", "Ctrl+Enter", "Ctrl+S", "Ctrl+C", "Escape"]) {
       expect(app.innerHTML).toContain(key);
     }
+  });
+
+  test("renders save confirmation setting", () => {
+    const data = createEmptyData();
+    const app = { innerHTML: "" };
+    const { render } = createRenderers({
+      app,
+      state: makeRendererState(data, { activePanel: "settings", settingsTab: "behavior" }),
+      bindEvents: () => {},
+      clampManagerPage: () => ({ page: 1, pageCount: 1, start: 0, end: 5 }),
+      renderManagerPager: () => "",
+      selectedItemsForCard: () => []
+    });
+
+    render();
+    expect(app.innerHTML).toContain('data-setting="confirmBeforeSave"');
+    expect(app.innerHTML).toContain("저장 전 확인");
+  });
+
+  test("renders configurable data path controls", () => {
+    const data = createEmptyData();
+    const app = { innerHTML: "" };
+    const { render } = createRenderers({
+      app,
+      state: makeRendererState(data, {
+        activePanel: "settings",
+        settingsTab: "data",
+        dataPath: "D:\\LineMemo\\data.json",
+        storagePath: { path: "D:\\LineMemo\\data.json", defaultPath: "C:\\data.json", custom: true }
+      }),
+      bindEvents: () => {},
+      clampManagerPage: () => ({ page: 1, pageCount: 1, start: 0, end: 5 }),
+      renderManagerPager: () => "",
+      selectedItemsForCard: () => []
+    });
+
+    render();
+    expect(app.innerHTML).toContain("사용자 지정");
+    expect(app.innerHTML).toContain('data-action="set-data-path"');
+    expect(app.innerHTML).toContain('data-action="reset-data-path"');
+    expect(app.innerHTML).not.toContain('data-action="reset-data-path" disabled');
   });
 
   test("renders quick input destination choices and target-card mode", () => {
@@ -684,7 +727,7 @@ function makeRendererState(data, overrides = {}) {
     duplicateConflict: null,
     managerPages: { tabs: 1, tags: 1 },
     managerFilters: { tabQuery: "", tabVisibility: "all", tabSort: "order", tagQuery: "", tagSort: "name" },
-    drafts: { quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN }, tableAdd: { cardId: "", lineLabel: "", lineValue: "", lineSecret: false }, quickLines: {} },
+    drafts: { quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN }, tableAdd: { cardId: "", lineLabel: "", lineValue: "", lineExpiresAt: "" }, quickLines: {} },
     movingLineKey: null,
     lineMoveDraft: null,
     deleteConfirm: null,
@@ -697,5 +740,5 @@ function makeRendererState(data, overrides = {}) {
 function startNewCardState(state) {
   state.activePanel = "editor";
   state.editingCardId = "new";
-  state.editorDraft = { title: "", tabId: "account", tags: "", description: "", quickValues: "one\ntwo" };
+  state.editorDraft = { title: "", tabId: "account", tags: "", description: "", quickValues: "one\ntwo", quickExpiresAt: "" };
 }

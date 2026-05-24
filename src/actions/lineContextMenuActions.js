@@ -1,4 +1,4 @@
-import { copyTextForItems, nowIso, sortedItems } from "../domain.js";
+import { copyTextForItems, sortedItems } from "../domain.js";
 
 const boundRoots = new WeakSet();
 
@@ -56,7 +56,7 @@ async function copyLine(copyText, card, item, includeLabel = false) {
 export function bindLineContextMenuActions(root, deps) {
   if (!root || boundRoots.has(root)) return;
   boundRoots.add(root);
-  const { state, render, copyText, startLineEdit, startLineMove, deleteCardLine, toggleReveal, scheduleSave, notify } = deps;
+  const { state, render, copyText, startLineEdit, startLineMove, deleteCardLine, toggleReveal } = deps;
 
   root.addEventListener("contextmenu", async (event) => {
     if (!state.data.settings.lineContextMenu || interactiveTarget(event.target, { allowEditableCells: true })) return;
@@ -116,14 +116,6 @@ export function bindLineContextMenuActions(root, deps) {
       render();
     }
     if (action === "reveal") toggleReveal(item.id);
-    if (action === "secret") {
-      item.secret = !item.secret;
-      item.updatedAt = nowIso();
-      card.updatedAt = item.updatedAt;
-      scheduleSave();
-      notify(item.secret ? "비밀값으로 표시함" : "비밀 표시 해제됨");
-      render();
-    }
     if (action === "open-url") {
       window.open(item.value, "_blank", "noopener,noreferrer");
       render();

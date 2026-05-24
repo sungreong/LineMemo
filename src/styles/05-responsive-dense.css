@@ -146,8 +146,8 @@
 
   .table-add-row select,
   .table-add-row input[name="lineLabel"],
+  .table-add-row input[name="lineExpiresAt"],
   .table-add-row textarea[name="lineValue"],
-  .table-add-row .secret-toggle,
   .table-add-row.with-tabs select[name="cardId"] {
     grid-column: 1 / -1;
   }
@@ -450,7 +450,7 @@
 }
 
 .dense .quick-line-form {
-  grid-template-columns: minmax(110px, 1fr) minmax(58px, 0.34fr) auto auto auto;
+  grid-template-columns: minmax(110px, 1fr) minmax(58px, 0.34fr) minmax(104px, auto) auto auto;
   gap: 4px;
   margin: 0 8px 6px;
   padding: 6px;
@@ -461,7 +461,7 @@
   min-height: 26px;
 }
 
-.dense .quick-line-form .secret-toggle {
+.dense .quick-line-form .expiry-input {
   min-height: 26px;
   font-size: 11px;
 }

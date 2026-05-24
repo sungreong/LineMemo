@@ -99,6 +99,15 @@ describe("line timestamps", () => {
   });
 });
 
+describe("settings normalization", () => {
+  test("enables save confirmation by default and honors opt-out values", () => {
+    expect(createEmptyData().settings.confirmBeforeSave).toBe(true);
+    expect(normalizeData({ settings: {} }).settings.confirmBeforeSave).toBe(true);
+    expect(normalizeData({ settings: { confirmBeforeSave: false } }).settings.confirmBeforeSave).toBe(false);
+    expect(normalizeData({ settings: { confirmBeforeSave: "false" } }).settings.confirmBeforeSave).toBe(false);
+  });
+});
+
 describe("getBlocks", () => {
   test("splits by divider items", () => {
     const items = parseLines("one\n---\ntwo\nthree");

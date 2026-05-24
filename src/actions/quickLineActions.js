@@ -1,8 +1,4 @@
-import { inferType, normalizeLineValueInput, nowIso, parseLineParts, sortedItems, stampLine, uid } from "../domain.js";
-
-function shouldInferSecret(label) {
-  return /(비밀번호|패스워드|암호|password|passwd|secret|token|api[-_ ]?key|apikey|pw)/i.test(String(label || ""));
-}
+import { inferType, normalizeDateOnly, normalizeLineValueInput, nowIso, parseLineParts, sortedItems, stampLine, uid } from "../domain.js";
 
 export function createQuickLineActions(ctx) {
   const { state, resolveDuplicatesBeforeAdd, scheduleSave, notify, clearTableAddDraft, clearQuickLineDraft } = ctx;
@@ -26,7 +22,7 @@ export function createQuickLineActions(ctx) {
     const label = rawLabel || parsed.label;
     const value = rawLabel || !parsed.label ? rawValue : parsed.value;
     const maxOrder = sortedItems(card.items).at(-1)?.order || 0;
-    const item = stampLine({ id: uid("line"), label, value, type: inferType(value), secret: Boolean(form.elements.lineSecret?.checked) || shouldInferSecret(label), order: maxOrder + 1 });
+    const item = stampLine({ id: uid("line"), label, value, type: inferType(value), secret: false, expiresAt: normalizeDateOnly(form.elements.lineExpiresAt?.value), order: maxOrder + 1 });
     const pending = { type: "quick-line", cardId, item, draftKind: isTableAdd ? "table" : "quickLine", draftCardId: cardId };
     if (resolveDuplicatesBeforeAdd([item], pending)) return;
     card.items.push(item);

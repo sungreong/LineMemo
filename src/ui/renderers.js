@@ -12,19 +12,18 @@ import {
   splitPasteText,
   sortedItems
 } from "../domain.js";
-import { isLockConfigured } from "../security/appLock.js";
 import { renderLineMovePanel, renderQuickPastePanel } from "./destinationRenderers.js";
 import { applyAppearanceSettings } from "./appearance.js";
 import { groupCopyKey, relatedLineItems, renderCopySetHeader, renderLineLabelHtml } from "./copySetRenderers.js";
 import { renderEditableCell as renderCell } from "./editableCell.js";
+import { expiryStateClass } from "./expiryBadge.js";
 import { icon } from "./icons.js";
 import { renderLineContextMenu } from "./lineContextMenu.js";
 import { renderLineEditorModal } from "./lineEditorRenderer.js";
 import { renderLineValueHtml } from "./lineValueView.js";
 import { renderTabManagerPanel, renderTagManagerPanel } from "./managerPanels.js";
-import { renderDataSettingsPanel } from "./dataSettingsPanel.js";
 import { renderPatternInsertButton, renderSplitPatternTools } from "./splitPatternControls.js";
-import { renderQuickActionsSettings } from "./settingsQuickActions.js";
+import { renderSettingsPanel } from "./settingsPanel.js";
 import { resultMetaLabel, searchMatchReasons } from "./searchFeedback.js";
 import { renderTagSuggestions } from "./tagSuggestions.js";
 import { escapeAttr, escapeHtml } from "./utils.js";
@@ -251,7 +250,7 @@ function renderTableRow(card, item, showTabColumn) {
   const groupItems = relatedLineItems(card, item);
   const groupKey = groupCopyKey(card, item);
   return `
-    <div class="table-row ${item.secret ? "secret" : ""} ${selected ? "selected" : ""} ${groupItems.length > 1 ? "grouped-row" : ""} type-${escapeAttr(item.type || "text")}" data-line-row data-card="${card.id}" data-id="${item.id}">
+    <div class="table-row ${item.secret ? "secret" : ""} ${expiryStateClass(item)} ${selected ? "selected" : ""} ${groupItems.length > 1 ? "grouped-row" : ""} type-${escapeAttr(item.type || "text")}" data-line-row data-card="${card.id}" data-id="${item.id}">
       ${showTabColumn ? renderEditableCell({ card, field: "tabId", className: "tab-badge", value: card.tabId, display: tabNameForCard(card) }) : ""}
       ${renderEditableCell({ card, field: "title", tag: "strong", value: card.title, display: card.title })}
       ${renderEditableCell({ card, item, field: "label", value: item.label || "", displayHtml: renderLineLabelHtml(card, item) })}
@@ -287,8 +286,8 @@ function renderTableQuickAdd(cards, showTabColumn) {
       </select>
       <input class="optional-label" name="lineLabel" data-draft="tableAdd" data-draft-field="lineLabel" value="${escapeAttr(draft.lineLabel || "")}" placeholder="라벨(선택)" autocomplete="off" />
       <textarea name="lineValue" data-draft="tableAdd" data-draft-field="lineValue" rows="2" placeholder="값 붙여넣기" autocomplete="off">${escapeHtml(draft.lineValue || "")}</textarea>
+      <input class="expiry-input" type="date" name="lineExpiresAt" data-draft="tableAdd" data-draft-field="lineExpiresAt" value="${escapeAttr(draft.lineExpiresAt || "")}" aria-label="유효기간" title="유효기간" />
       <div class="table-add-actions">
-        <label class="secret-toggle"><input type="checkbox" name="lineSecret" data-draft="tableAdd" data-draft-field="lineSecret" ${draft.lineSecret ? "checked" : ""} /> secret</label>
         <button class="primary icon-button" type="submit" title="줄 추가" aria-label="줄 추가">${icon("plus")}</button>
         <button class="icon-button" type="button" data-action="toggle-table-add" title="행 추가 닫기" aria-label="행 추가 닫기">${icon("chevronDown")}</button>
       </div>
@@ -440,16 +439,16 @@ function renderCard(card) {
 
 function renderCardCounts(card, blocks) {
   const lines = sortedItems(card.items).filter((item) => item.type !== "divider");
-  const secretCount = lines.filter((item) => item.secret).length;
+  const datedCount = lines.filter((item) => item.expiresAt).length;
   return `
-    <span class="card-count" title="${lines.length}줄${blocks.length > 1 ? ` · ${blocks.length}블록` : ""}${secretCount ? ` · secret ${secretCount}` : ""}">
-      ${lines.length}줄${blocks.length > 1 ? ` · ${blocks.length}블록` : ""}${secretCount ? ` · secret ${secretCount}` : ""}
+    <span class="card-count" title="${lines.length}줄${blocks.length > 1 ? ` · ${blocks.length}블록` : ""}${datedCount ? ` · 유효기간 ${datedCount}` : ""}">
+      ${lines.length}줄${blocks.length > 1 ? ` · ${blocks.length}블록` : ""}${datedCount ? ` · 유효기간 ${datedCount}` : ""}
     </span>
   `;
 }
 
 function quickLineDraftHasValue(draft = {}) {
-  return Boolean(String(draft.lineValue || "").trim() || String(draft.lineLabel || "").trim() || draft.lineSecret);
+  return Boolean(String(draft.lineValue || "").trim() || String(draft.lineLabel || "").trim() || draft.lineExpiresAt);
 }
 
 function renderCardTags(card) {
@@ -461,10 +460,6 @@ function renderCardTags(card) {
 function renderPreviewItems(card, items) {
   const seenSets = new Set();
   return items.map((item) => `${renderCopySetHeader(card, item, seenSets)}${renderPreviewLine(card, item)}`).join("");
-}
-
-function renderTabBadge(card) {
-  return `<button type="button" class="tab-badge" data-action="tab" data-id="${card.tabId}" title="${escapeAttr(tabNameForCard(card))} 탭">${escapeHtml(tabNameForCard(card))}</button>`;
 }
 
 function tabNameForCard(card) {
@@ -522,7 +517,7 @@ function renderPreviewLine(card, item) {
   const groupItems = relatedLineItems(card, item);
   const groupKey = groupCopyKey(card, item);
   return `
-    <div class="preview-row ${item.secret ? "secret" : ""} ${state.selected.has(`${card.id}:${item.id}`) ? "selected" : ""} ${groupItems.length > 1 ? "grouped-row" : ""} type-${escapeAttr(item.type || "text")}" data-line-row data-card="${card.id}" data-id="${item.id}">
+    <div class="preview-row ${item.secret ? "secret" : ""} ${expiryStateClass(item)} ${state.selected.has(`${card.id}:${item.id}`) ? "selected" : ""} ${groupItems.length > 1 ? "grouped-row" : ""} type-${escapeAttr(item.type || "text")}" data-line-row data-card="${card.id}" data-id="${item.id}">
       <input type="checkbox" title="선택" data-action="select-line" data-card="${card.id}" data-id="${item.id}" ${state.selected.has(`${card.id}:${item.id}`) ? "checked" : ""} />
       ${renderEditableCell({ card, item, field: "label", className: "line-label", value: item.label || "", displayHtml: renderLineLabelHtml(card, item) })}
       ${renderEditableCell({ card, item, field: "value", tag: "div", className: "line-value", value: item.value, displayHtml: valueHtml })}
@@ -534,40 +529,6 @@ function renderPreviewLine(card, item) {
         <button type="button" class="tiny icon-button copy-line ${state.lastCopiedKey === `line:${card.id}:${item.id}` ? "copied" : ""}" data-action="copy-line" data-card="${card.id}" data-id="${item.id}" title="줄 복사" aria-label="줄 복사">${copyIcon(`line:${card.id}:${item.id}`)}</button>
         <button type="button" class="tiny icon-button delete-line-button" data-action="delete-line" data-card="${card.id}" data-id="${item.id}" title="줄 삭제" aria-label="줄 삭제">${icon("trash")}</button>
       </div>
-    </div>
-  `;
-}
-
-function renderInlineLineEditor(card, item, mode) {
-  const draft = state.lineEditDraft || item;
-  if (mode === "table") {
-    return `
-      <div class="table-row line-edit-row table-line-edit-row">
-        <strong>${escapeHtml(card.title)}</strong>
-        ${renderTabBadge(card)}
-        <input data-line-edit-field="label" value="${escapeAttr(draft.label || "")}" placeholder="라벨" />
-        <div class="line-edit-value-group">
-          <textarea data-line-edit-value data-line-edit-field="value" rows="2" placeholder="값" ${draft.type === "divider" ? "readonly" : ""}>${escapeHtml(draft.value || "")}</textarea>
-          <select data-line-edit-field="type" aria-label="타입">${ITEM_TYPES.map((type) => `<option value="${type}" ${type === draft.type ? "selected" : ""}>${type}</option>`).join("")}</select>
-          <label class="check line-secret"><input type="checkbox" data-line-edit-field="secret" ${draft.secret ? "checked" : ""} /> secret</label>
-        </div>
-        <div class="table-actions line-edit-actions">
-          <button type="button" class="tiny primary" data-action="save-line-edit">저장</button>
-          <button type="button" class="tiny" data-action="cancel-line-edit">취소</button>
-          <button type="button" class="tiny danger" data-action="delete-line" data-card="${card.id}" data-id="${item.id}">삭제</button>
-        </div>
-      </div>
-    `;
-  }
-  return `
-    <div class="${mode === "table" ? "table-row" : "preview-row"} line-edit-row">
-      <input data-line-edit-field="label" value="${escapeAttr(draft.label || "")}" placeholder="라벨" />
-      <textarea data-line-edit-value data-line-edit-field="value" rows="2" placeholder="값" ${draft.type === "divider" ? "readonly" : ""}>${escapeHtml(draft.value || "")}</textarea>
-      <select data-line-edit-field="type">${ITEM_TYPES.map((type) => `<option value="${type}" ${type === draft.type ? "selected" : ""}>${type}</option>`).join("")}</select>
-      <label class="check line-secret"><input type="checkbox" data-line-edit-field="secret" ${draft.secret ? "checked" : ""} /> secret</label>
-      <button type="button" class="tiny primary" data-action="save-line-edit">저장</button>
-      <button type="button" class="tiny" data-action="cancel-line-edit">취소</button>
-      <button type="button" class="tiny danger" data-action="delete-line" data-card="${card.id}" data-id="${item.id}">삭제</button>
     </div>
   `;
 }
@@ -587,7 +548,7 @@ function renderQuickLineForm(card) {
     <form class="quick-line-form" data-quick-line-form data-card="${card.id}">
       <textarea name="lineValue" data-draft="quickLine" data-draft-field="lineValue" rows="2" placeholder="값 붙여넣기" autocomplete="off">${escapeHtml(draft.lineValue || "")}</textarea>
       <input class="optional-label" name="lineLabel" data-draft="quickLine" data-draft-field="lineLabel" value="${escapeAttr(draft.lineLabel || "")}" placeholder="라벨(선택)" autocomplete="off" />
-      <label class="secret-toggle"><input type="checkbox" name="lineSecret" data-draft="quickLine" data-draft-field="lineSecret" ${draft.lineSecret ? "checked" : ""} /> secret</label>
+      <input class="expiry-input" type="date" name="lineExpiresAt" data-draft="quickLine" data-draft-field="lineExpiresAt" value="${escapeAttr(draft.lineExpiresAt || "")}" aria-label="유효기간" title="유효기간" />
       <button class="icon-button" type="button" data-action="toggle-quick-line" data-card="${card.id}" title="줄 추가 닫기" aria-label="줄 추가 닫기">${icon("chevronDown")}</button>
       <button class="icon-button" type="submit" title="줄 추가" aria-label="줄 추가">${icon("plus")}</button>
     </form>
@@ -602,7 +563,7 @@ function renderActivePanel() {
   if (state.activePanel === "quick") return renderQuickPastePanel(state, renderTagPreview);
   if (state.activePanel === "tabs") return renderTabManager();
   if (state.activePanel === "tags") return renderTagManager();
-  if (state.activePanel === "settings") return renderSettings();
+  if (state.activePanel === "settings") return renderSettingsPanel(state);
   if (state.activePanel === "editor") return renderEditor();
   if (state.activePanel === "line-editor") return renderLineEditorModal(state, tabNameForCard);
   if (state.activePanel === "line-move") return renderLineMovePanel(state);
@@ -717,6 +678,9 @@ function renderPasteOptions(draft) {
           <option value="pattern" ${splitMode === "pattern" ? "selected" : ""}>패턴으로 나누기</option>
         </select>
       </label>
+      <label>유효기간
+        <input type="date" name="quickExpiresAt" value="${escapeAttr(draft.quickExpiresAt || "")}" />
+      </label>
       ${patternTools}
     </section>
   `;
@@ -737,7 +701,8 @@ function renderEditor() {
     description: card.description,
     quickValues: "",
     quickSplitMode: "line",
-    quickSplitPattern: DEFAULT_SPLIT_PATTERN
+    quickSplitPattern: DEFAULT_SPLIT_PATTERN,
+    quickExpiresAt: ""
   };
   const isNew = state.editingCardId === "new";
   const splitMode = draft.quickSplitMode === "pattern" ? "pattern" : "line";
@@ -803,7 +768,7 @@ function renderEditorLine(item, index) {
         <input data-field="label" value="${escapeAttr(item.label)}" placeholder="라벨(선택)" aria-label="라벨" />
         <textarea class="edit-line-value" data-field="value" rows="1" placeholder="복사할 값" aria-label="복사할 값" ${item.type === "divider" ? "readonly" : ""}>${escapeHtml(item.value)}</textarea>
         <select data-field="type">${ITEM_TYPES.map((type) => `<option value="${type}" ${type === item.type ? "selected" : ""}>${type}</option>`).join("")}</select>
-        <label class="check secret-inline" title="secret"><input type="checkbox" data-field="secret" ${item.secret ? "checked" : ""} /><span>sec</span></label>
+        <input class="expiry-inline" type="date" data-field="expiresAt" value="${escapeAttr(item.expiresAt || "")}" aria-label="유효기간" title="유효기간" />
         <div class="edit-line-controls">
           <button type="button" class="icon-button" data-action="line-up" data-id="${item.id}" ${index === 0 ? "disabled" : ""} title="위로" aria-label="위로">${icon("arrowUp")}</button>
           <button type="button" class="icon-button" data-action="line-down" data-id="${item.id}" ${index === state.editorItems.length - 1 ? "disabled" : ""} title="아래로" aria-label="아래로">${icon("arrowDown")}</button>
@@ -818,147 +783,6 @@ function renderTagPreview(input) {
   const tags = parseTags(input);
   if (!tags.length) return `<span class="tag-preview-empty">comma로 태그를 나눌 수 있습니다</span>`;
   return tags.map((tag) => `<span class="tag-preview-chip">#${escapeHtml(tag)}</span>`).join("");
-}
-
-function renderSettings() {
-  const s = state.data.settings;
-  const locked = isLockConfigured(s);
-  const desktop = state.desktopIntegration || {};
-  const active = ["behavior", "quick-actions", "appearance", "system", "help", "security", "data"].includes(state.settingsTab) ? state.settingsTab : "behavior";
-  const tabButton = (id, label) => `<button type="button" class="${active === id ? "active" : ""}" data-action="settings-tab" data-tab="${id}" aria-pressed="${active === id}">${label}</button>`;
-  return `
-    <section class="panel settings settings-panel">
-      <header class="panel-head">
-        <h2>설정</h2>
-        <button type="button" data-action="open-panel" data-panel="settings">닫기</button>
-      </header>
-      <nav class="settings-tabs" aria-label="설정 그룹">
-        ${tabButton("behavior", "동작")}
-        ${tabButton("quick-actions", "빠른작업")}
-        ${tabButton("appearance", "화면")}
-        ${tabButton("system", "시스템")}
-        ${tabButton("help", "도움말")}
-        ${tabButton("security", "보안")}
-        ${tabButton("data", "데이터")}
-      </nav>
-      <div class="settings-tab-body">
-      ${active === "behavior" ? `
-      <section class="settings-section">
-        <h3>동작</h3>
-        <label class="check"><input type="checkbox" data-setting="rememberLastTab" ${s.rememberLastTab ? "checked" : ""} /> 마지막 탭 기억</label>
-        <label class="check"><input type="checkbox" data-setting="confirmBeforeDelete" ${s.confirmBeforeDelete ? "checked" : ""} /> 삭제 전 확인</label>
-        <label class="check"><input type="checkbox" data-setting="autoClearClipboard" ${s.autoClearClipboard ? "checked" : ""} /> 복사 후 클립보드 자동 삭제</label>
-        <label>클립보드 삭제 대기
-          <select data-setting="clipboardClearSeconds" ${s.autoClearClipboard ? "" : "disabled"}>
-            ${[10, 30, 60].map((v) => `<option value="${v}" ${Number(s.clipboardClearSeconds) === v ? "selected" : ""}>${v}초</option>`).join("")}
-          </select>
-        </label>
-      </section>
-      ` : ""}
-      ${active === "quick-actions" ? renderQuickActionsSettings(s) : ""}
-      ${active === "appearance" ? `
-      <section class="settings-section">
-        <h3>화면</h3>
-        <label>글씨 크기
-          <select data-setting="fontSize" data-setting-type="string">
-            ${[["small", "작게"], ["normal", "보통"], ["large", "크게"]].map(([value, label]) => `<option value="${value}" ${s.fontSize === value ? "selected" : ""}>${label}</option>`).join("")}
-          </select>
-        </label>
-        <label>배경 색상
-          <select data-setting="colorTheme" data-setting-type="string">
-            ${[["warm", "따뜻한 기본"], ["sage", "세이지"], ["sky", "스카이"], ["rose", "로즈"], ["slate", "슬레이트"]].map(([value, label]) => `<option value="${value}" ${s.colorTheme === value ? "selected" : ""}>${label}</option>`).join("")}
-          </select>
-        </label>
-        <label class="check"><input type="checkbox" data-setting="darkMode" ${s.darkMode ? "checked" : ""} /> 다크 모드</label>
-        <div class="theme-preview-strip" aria-label="색상 미리보기">
-          ${["warm", "sage", "sky", "rose", "slate"].map((theme) => `<span class="theme-dot theme-${theme} ${s.colorTheme === theme ? "active" : ""}"></span>`).join("")}
-        </div>
-      </section>
-      ` : ""}
-      ${active === "system" ? `
-      <section class="settings-section">
-        <h3>Windows</h3>
-        <label class="check"><input type="checkbox" data-setting="minimizeToTray" ${s.minimizeToTray ? "checked" : ""} /> 닫기 버튼을 누르면 트레이로 숨김</label>
-        <label class="check"><input type="checkbox" data-setting="launchOnStartup" ${s.launchOnStartup ? "checked" : ""} /> 컴퓨터를 켤 때 자동 실행</label>
-        <p class="panel-note">${desktop.available === false ? "브라우저 미리보기에서는 Windows 통합 기능이 동작하지 않습니다." : "트레이 아이콘에서 앱을 다시 열거나 완전히 종료할 수 있습니다."}</p>
-        ${desktop.error ? `<p class="form-error">${escapeHtml(desktop.error)}</p>` : ""}
-      </section>
-      ` : ""}
-      ${active === "help" ? `
-      <section class="settings-section guidance-section">
-        <h3>빠른 사용법</h3>
-        <div class="guide-list">
-          <div><strong>새 카드</strong><span>값을 먼저 붙여넣고 제목은 비워두면 첫 줄로 자동 생성됩니다.</span></div>
-          <div><strong>행 추가</strong><span>표 보기에서 현재 카드에 한 줄을 바로 추가하고 입력칸은 계속 열어둡니다.</span></div>
-          <div><strong>세트</strong><span>같이 쓰는 줄을 묶어 전체, 탭 구분, 다음 값 순서로 복사합니다.</span></div>
-          <div><strong>secret</strong><span>화면에서만 숨깁니다. 저장 파일 자체는 암호화하지 않습니다.</span></div>
-          <div><strong>중복 경고</strong><span>같은 값이 있으면 기존 위치로 이동하거나 그래도 추가할 수 있습니다.</span></div>
-          <div><strong>앱 잠금</strong><span>비밀번호로 화면을 잠급니다. JSON 파일 보호는 Windows 계정 보안에 따릅니다.</span></div>
-        </div>
-      </section>
-      <section class="settings-section shortcut-section">
-        <h3>단축키</h3>
-        <div class="shortcut-grid">
-          ${[
-            ["Ctrl+N", "새 카드"],
-            ["Ctrl+Shift+N", "빠른 입력"],
-            ["Ctrl+Shift+A", "표 행 추가"],
-            ["Ctrl+Shift+L", "앱 잠금"],
-            ["Alt+1 / 2", "카드 · 표 보기"],
-            ["Ctrl+Enter", "현재 폼 제출"],
-            ["Ctrl+S", "편집 저장"],
-            ["Ctrl+C", "선택 줄 복사"],
-            ["Escape", "편집/패널 닫기"]
-          ].map(([key, label]) => `<div><kbd>${escapeHtml(key)}</kbd><span>${escapeHtml(label)}</span></div>`).join("")}
-        </div>
-      </section>
-      ` : ""}
-      ${active === "security" ? `
-      <section class="settings-section">
-        <h3>보안 표시</h3>
-        <label>비밀값 표시 시간
-          <div class="suffix-input"><input type="number" min="3" max="120" data-setting="secretRevealSeconds" value="${escapeAttr(s.secretRevealSeconds)}" /><span>초</span></div>
-        </label>
-      </section>
-      <section class="settings-section lock-settings-section">
-        <h3>앱 잠금</h3>
-        <p class="panel-note">앱을 열 때 비밀번호를 묻는 화면 잠금입니다. 저장된 JSON 파일은 암호화하지 않습니다.</p>
-        <label>자동 재잠금
-          <select data-setting="lockTimeoutMinutes">
-            ${[
-              [1, "1분"],
-              [5, "5분"],
-              [15, "15분"],
-              [60, "1시간"],
-              [240, "4시간"]
-            ].map(([value, label]) => `<option value="${value}" ${Number(s.lockTimeoutMinutes) === value ? "selected" : ""}>${label}</option>`).join("")}
-          </select>
-        </label>
-        ${locked ? `
-          <div class="lock-status"><span>${icon("shield")}</span><strong>잠금 켜짐</strong><button type="button" data-action="lock-now">${icon("lock")} 지금 잠그기</button></div>
-          <form id="lock-password-form" class="password-form">
-            <label>현재 비밀번호<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
-            <label>새 비밀번호<input name="newPassword" type="password" autocomplete="new-password" minlength="4" required /></label>
-            <label>새 비밀번호 확인<input name="confirmPassword" type="password" autocomplete="new-password" minlength="4" required /></label>
-            <button type="submit" class="primary">비밀번호 변경</button>
-          </form>
-          <form id="lock-remove-form" class="password-form compact-password-form">
-            <label>현재 비밀번호<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
-            <button type="submit">잠금 끄기</button>
-          </form>
-        ` : `
-          <form id="lock-password-form" class="password-form">
-            <label>새 비밀번호<input name="newPassword" type="password" autocomplete="new-password" minlength="4" required /></label>
-            <label>새 비밀번호 확인<input name="confirmPassword" type="password" autocomplete="new-password" minlength="4" required /></label>
-            <button type="submit" class="primary">잠금 켜기</button>
-          </form>
-        `}
-      </section>
-      ` : ""}
-      ${active === "data" ? renderDataSettingsPanel(state) : ""}
-      </div>
-    </section>
-  `;
 }
 
 function renderEmpty() {

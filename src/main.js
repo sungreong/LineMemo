@@ -25,25 +25,10 @@ import { createTagActions } from "./actions/tagActions.js";
 import { bindTagSuggestionActions } from "./actions/tagSuggestionActions.js";
 import { createUiActionHandler } from "./actions/uiActions.js";
 import { createViewActions } from "./actions/viewActions.js";
-import {
-  ITEM_TYPES,
-  DEFAULT_SPLIT_PATTERN,
-  allTags,
-  copyTextForItems,
-  formatTags,
-  inferType,
-  makeCard,
-  mergeLineTimestamps,
-  normalizeData,
-  normalizeLineValueInput,
-  nowIso,
-  parsePasteItems,
-  parseTags,
-  stampLine,
-  sortedItems,
-  uid
-} from "./domain.js";
-import { applyDesktopPreferences, getDataFilePath, loadData, saveData } from "./storage.js";
+import { ITEM_TYPES, DEFAULT_SPLIT_PATTERN, applyExpiryToItems, allTags, copyTextForItems, formatTags, inferType, makeCard, mergeLineTimestamps, normalizeData, normalizeDateOnly, normalizeLineValueInput, nowIso, parsePasteItems, parseTags, stampLine, sortedItems, uid } from "./domain.js";
+import { createExpiryNotificationScheduler } from "./notifications/expiryNotifications.js";
+import { cardPayloadHasChanges, lineEditHasChanges } from "./saveDiff.js";
+import { applyDesktopPreferences, getStoragePathStatus, loadData, saveData } from "./storage.js";
 import { clearQuickDraft, clearQuickLineDraft, clearTableAddDraft, createEmptyDrafts, syncDraftField } from "./state/drafts.js";
 import { bindEditorDraftPersistence, clearEditorDraftSnapshot, hasEditorDraftSnapshot, restoreEditorDraft } from "./state/editorDraftPersistence.js";
 import { defaultTabId, syncActiveTabs } from "./state/tabs.js";
@@ -68,7 +53,7 @@ const state = {
   editorItems: [],
   toast: "",
   lastCopiedKey: "",
-  dataPath: "",
+  dataPath: "", storagePath: null,
   lastCopiedText: "",
   denseMode: localStorage.getItem("linememo-dense-mode") !== "false",
   viewMode: localStorage.getItem("linememo-view-mode") || "cards",
@@ -105,14 +90,14 @@ let selectManagerTag = () => {};
 let toggleTagQuery = () => {};
 let renameTag = () => {};
 let deleteTag = () => {};
-let handleImport = async () => {};
-let handleExport = async () => {};
+let handleImport = async () => {}, handleExport = async () => {}, handleDataPathChange = async () => {}, handleDataPathReset = async () => {};
 let lockApp = () => false, unlockApp = async () => false, setLockPassword = async () => false;
 let changeLockPassword = async () => false, removeLockPassword = async () => false;
 let lockOnBoot = () => {}, touchLockActivity = () => {}, bindLockActivityTracking = () => {};
 let quickPaste = () => {}, quickAddLineFromForm = () => {}, copySplitPattern = async () => {}, insertSplitPattern = () => {}, startLineMove = () => {}, updateLineMoveTarget = () => {}, updateLineMoveQuery = () => {};
 let cancelLineMove = () => {}, confirmLineMove = () => {};
 let requestDeleteConfirm = (_message, onConfirm) => onConfirm?.(), cancelDeleteConfirm = () => {}, confirmPendingDelete = () => {};
+let syncExpiryNotificationSchedule = () => {}, checkExpiryNotifications = async () => {};
 
 let saveTimer = null, draftSaveTimer = null;
 let revealTimers = new Map();
@@ -129,10 +114,11 @@ async function boot() {
   applyAppearanceSettings(state.data.settings);
   const remembered = state.data.settings.rememberLastTab ? state.data.settings.lastTabId || "inbox" : "inbox";
   syncActiveTabs(state, remembered, { single: true });
-  state.dataPath = await getDataFilePath();
+  state.storagePath = await getStoragePathStatus(); state.dataPath = state.storagePath.path;
   await syncDesktopPreferences();
   lockOnBoot();
   render();
+  syncExpiryNotificationSchedule({ immediate: true });
 }
 
 function scheduleSave() {
@@ -154,6 +140,10 @@ function notify(message) {
     render();
   }, 1400);
 }
+
+({ sync: syncExpiryNotificationSchedule, runNow: checkExpiryNotifications } = createExpiryNotificationScheduler({ state, notify, scheduleSave }));
+
+function confirmSave(message = "변경사항을 저장하시겠습니까?") { return !state.data.settings.confirmBeforeSave || confirm(message); }
 
 function scheduleSearchRender() {
   clearTimeout(searchRenderTimer);
@@ -300,7 +290,7 @@ function startNewCard() {
     clearEditorDraftSnapshot(state); scheduleDraftSave({ immediate: true });
   }
   state.editingCardId = "new"; state.activePanel = "editor";
-  state.editorDraft = { title: "", tabId: defaultTabId(state), tags: "", description: "", quickValues: "", quickSplitMode: "line", quickSplitPattern: DEFAULT_SPLIT_PATTERN };
+  state.editorDraft = { title: "", tabId: defaultTabId(state), tags: "", description: "", quickValues: "", quickSplitMode: "line", quickSplitPattern: DEFAULT_SPLIT_PATTERN, quickExpiresAt: "" };
   state.editorItems = []; render(); queueMicrotask(() => document.querySelector("#card-title")?.focus());
 }
 
@@ -316,7 +306,8 @@ function startEditCard(cardId) {
     description: card.description,
     quickValues: "",
     quickSplitMode: "line",
-    quickSplitPattern: DEFAULT_SPLIT_PATTERN
+    quickSplitPattern: DEFAULT_SPLIT_PATTERN,
+    quickExpiresAt: ""
   };
   state.editorItems = sortedItems(card.items).map((item) => ({ ...item }));
   render();
@@ -349,6 +340,7 @@ function addEditorLine() {
     value: "",
     type: "text",
     secret: false,
+    expiresAt: "",
     order: state.editorItems.length + 1
   }));
   render();
@@ -387,7 +379,8 @@ function syncEditorDraft() {
     description: String(formData.get("description") || ""),
     quickValues: String(formData.get("quickValues") || ""),
     quickSplitMode: String(formData.get("quickSplitMode") || "line"),
-    quickSplitPattern: String(formData.get("quickSplitPattern") || DEFAULT_SPLIT_PATTERN)
+    quickSplitPattern: String(formData.get("quickSplitPattern") || DEFAULT_SPLIT_PATTERN),
+    quickExpiresAt: normalizeDateOnly(formData.get("quickExpiresAt"))
   };
 }
 
@@ -395,12 +388,12 @@ function saveEditor(form) {
   syncEditorDraft();
   const formData = new FormData(form);
   const quickValues = String(formData.get("quickValues") || "");
-  const quickItems = parsePasteItems(quickValues, {
+  const quickItems = applyExpiryToItems(parsePasteItems(quickValues, {
     splitMode: formData.get("quickSplitMode"),
     splitPattern: formData.get("quickSplitPattern")
-  });
+  }), formData.get("quickExpiresAt"));
   const items = state.editorItems
-    .map((item, index) => ({ ...item, order: index + 1, value: item.type === "divider" ? "---" : item.value }))
+    .map((item, index) => ({ ...item, order: index + 1, value: item.type === "divider" ? "---" : item.value, expiresAt: item.type === "divider" ? "" : normalizeDateOnly(item.expiresAt) }))
     .filter((item) => item.type === "divider" || item.value.trim() || item.label.trim());
   const mergedItems = items.length ? items : quickItems;
   const payload = {
@@ -420,6 +413,8 @@ function saveEditor(form) {
   } else {
     const card = state.data.cards.find((entry) => entry.id === state.editingCardId);
     if (card) {
+      if (!cardPayloadHasChanges(card, payload)) { closeEditor(false); notify("변경 없음"); render(); return; }
+      if (!confirmSave()) return;
       const time = nowIso();
       Object.assign(card, payload, { items: mergeLineTimestamps(payload.items, card.items, time), updatedAt: time });
     }
@@ -451,7 +446,8 @@ function startLineEdit(cardId, lineId) {
     value: item.value,
     group: item.group || "",
     type: item.type,
-    secret: item.secret
+    secret: item.secret,
+    expiresAt: item.expiresAt || ""
   };
   render();
   queueMicrotask(() => document.querySelector("[data-line-edit-value]")?.focus());
@@ -548,6 +544,8 @@ function saveLineEdit() {
   const card = state.data.cards.find((entry) => entry.id === cardId);
   const item = card?.items.find((line) => line.id === lineId);
   if (!card || !item) return;
+  if (!lineEditHasChanges(item, draft)) { cancelLineEdit(); notify("변경 없음"); return; }
+  if (!confirmSave()) return;
   const time = nowIso();
   Object.assign(item, {
     label: draft.type === "divider" ? "" : String(draft.label || "").trim(),
@@ -555,6 +553,7 @@ function saveLineEdit() {
     group: draft.type === "divider" ? "" : String(draft.group || "").trim(),
     type: ITEM_TYPES.includes(draft.type) ? draft.type : "text",
     secret: Boolean(draft.secret),
+    expiresAt: draft.type === "divider" ? "" : normalizeDateOnly(draft.expiresAt),
     updatedAt: time
   });
   card.updatedAt = time;
@@ -647,6 +646,9 @@ function updateSetting(key, value) {
   if (key === "lockTimeoutMinutes") touchLockActivity();
   if (key === "minimizeToTray" || key === "launchOnStartup") {
     syncDesktopPreferences({ silent: false });
+  }
+  if (key.startsWith("expiryNotification") || key === "expiryNotifications" || key === "expiryNotifyBeforeDays") {
+    syncExpiryNotificationSchedule({ immediate: Boolean(state.data.settings.expiryNotifications) });
   }
   render();
 }
@@ -753,7 +755,7 @@ function bindEvents() {
       if (event.currentTarget.tagName === "SELECT") saveCellEdit();
     });
     control.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.shiftKey) {
+      if (event.key === "Enter" && !event.shiftKey && event.currentTarget.tagName !== "TEXTAREA") {
         event.preventDefault();
         saveCellEdit();
       }
@@ -779,7 +781,7 @@ function bindEvents() {
       if (field === "type") render();
     });
     control.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.shiftKey) {
+      if (event.key === "Enter" && !event.shiftKey && event.currentTarget.tagName !== "TEXTAREA") {
         event.preventDefault();
         saveLineEdit();
       }
@@ -888,7 +890,7 @@ function bindEvents() {
   requestDeleteConfirm
 }));
 
-({ handleImport, handleExport } = createBackupActions({
+({ handleImport, handleExport, handleDataPathChange, handleDataPathReset } = createBackupActions({
   state,
   notify,
   render: () => render()
@@ -958,7 +960,10 @@ const handleAction = createUiActionHandler({
   setViewMode,
   focusTableAdd,
   handleExport,
+  handleDataPathChange,
+  handleDataPathReset,
   lockApp,
+  checkExpiryNotifications,
   cancelDeleteConfirm,
   confirmPendingDelete
 });

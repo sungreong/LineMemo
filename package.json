@@ -14,6 +14,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
+    "@tauri-apps/plugin-notification": "^2.3.3",
     "minisearch": "^7.2.0"
   },
   "devDependencies": {
