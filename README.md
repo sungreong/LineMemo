@@ -1,6 +1,15 @@
 # LineMemo Lite
 
+[![CI](https://github.com/sungreong/LineMemo/actions/workflows/ci.yml/badge.svg)](https://github.com/sungreong/LineMemo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 LineMemo Lite is a tiny Windows-first local copy launcher. It is designed for quickly saving repeated values, filtering by tab or tag, and copying a line without opening a heavy note app.
+
+![LineMemo Lite overview](assets/linememo-lite-overview.png)
+
+## Status
+
+LineMemo Lite is a personal, Windows-first desktop app built with Tauri, vanilla JavaScript, and local JSON storage. It is intentionally small: no account system, no cloud sync, no telemetry, and no network service.
 
 ## Features
 
@@ -40,6 +49,21 @@ Default data path:
 ```
 
 Users can move the active data file from Settings > Data by entering a folder or `.json` file path. The path pointer itself is stored under `%APPDATA%\LineMemoLite\storage.json`.
+
+## Engineering Notes
+
+- Korean search is treated as a first-class workflow: composed/decomposed Hangul and compatibility jamo are normalized before tokenization and ranking.
+- Search combines MiniSearch with deterministic fallback scoring so exact card names, labels, tags, and line values stay discoverable even for short or Korean-heavy queries.
+- Local data is normalized at the boundary, imported JSON is validated, and existing data files are backed up before destructive replacements.
+- Secret values are hidden from transient copy feedback, hidden cell titles, lock screens, and expiry notifications.
+- The Tauri shell keeps app behavior local and exposes only the commands and permissions needed for file I/O, clipboard, notifications, link opening, tray behavior, and autostart.
+- Regression tests cover parsing, search, imports, shortcuts, copy behavior, app-lock hashing, renderer smoke checks, layout guards, and file-size budgets.
+
+## Open Source License
+
+This repository is licensed under the MIT License.
+
+"Public source" means people can see the code. "Open source" means the license also gives them clear permission to use, copy, modify, and redistribute it. The `LICENSE` file is what makes that permission explicit.
 
 ## Install From A Local Build
 

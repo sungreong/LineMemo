@@ -3,6 +3,7 @@ name = "linememo-lite"
 version = "0.1.0"
 description = "LineMemo Lite"
 authors = ["LineMemo Lite"]
+license = "MIT"
 edition = "2021"
 
 [build-dependencies]
