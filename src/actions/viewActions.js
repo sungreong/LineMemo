@@ -1,4 +1,24 @@
 export function createViewActions({ state, render }) {
+  function toggleSetCollapse(setKey) {
+    if (!setKey) return;
+    state.collapsedSets = state.collapsedSets || {};
+    if (state.collapsedSets[setKey]) delete state.collapsedSets[setKey];
+    else state.collapsedSets[setKey] = true;
+    render();
+  }
+
+  function toggleVisibleSetCollapse(setKeys = []) {
+    const keys = [...new Set(setKeys.filter(Boolean))];
+    if (!keys.length) return;
+    state.collapsedSets = state.collapsedSets || {};
+    const shouldExpand = keys.every((key) => state.collapsedSets[key]);
+    for (const key of keys) {
+      if (shouldExpand) delete state.collapsedSets[key];
+      else state.collapsedSets[key] = true;
+    }
+    render();
+  }
+
   function setViewMode(mode) {
     state.viewMode = mode === "table" ? "table" : "cards";
     if (mode === "dense") state.denseMode = true;
@@ -15,5 +35,5 @@ export function createViewActions({ state, render }) {
     queueMicrotask(() => document.querySelector("[data-table-quick-add] [name='lineValue']")?.focus());
   }
 
-  return { setViewMode, focusTableAdd };
+  return { setViewMode, focusTableAdd, toggleSetCollapse, toggleVisibleSetCollapse };
 }

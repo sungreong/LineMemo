@@ -112,6 +112,9 @@ export function renderQuickPastePanel(state, renderTagPreview) {
             <label class="option-field">대표 이름
               <input name="quickBaseLabel" data-draft="quick" data-draft-field="baseLabel" value="${escapeAttr(draft.baseLabel || "")}" placeholder="A, 서버, 계정" />
             </label>
+            <label class="option-field">세트 이름
+              <input name="quickGroup" data-draft="quick" data-draft-field="group" value="${escapeAttr(draft.group || "")}" placeholder="예: 로그인 묶음" />
+            </label>
             <label class="option-field">유효기간
               <input type="date" name="quickExpiresAt" data-draft="quick" data-draft-field="expiresAt" value="${escapeAttr(draft.expiresAt || "")}" />
             </label>
@@ -120,8 +123,10 @@ export function renderQuickPastePanel(state, renderTagPreview) {
         </div>
         <p class="quick-parse-note">${escapeHtml(splitNote)}</p>
         ${target ? "" : `
-          <label>제목<input name="quickTitle" data-draft="quick" data-draft-field="title" value="${escapeAttr(draft.title || "")}" placeholder="비워두면 첫 줄로 제목 생성" /></label>
-          <label>태그<input name="quickTags" data-tag-input data-draft="quick" data-draft-field="tags" value="${escapeAttr(draft.tags || "")}" placeholder="apikey, 비밀번호, prod" /></label>
+          <div class="quick-card-meta-row">
+            <label>제목<input name="quickTitle" data-draft="quick" data-draft-field="title" value="${escapeAttr(draft.title || "")}" placeholder="비워두면 첫 줄로 제목 생성" /></label>
+            <label>태그<input name="quickTags" data-tag-input data-draft="quick" data-draft-field="tags" value="${escapeAttr(draft.tags || "")}" placeholder="apikey, 비밀번호, prod" /></label>
+          </div>
           <div class="tag-preview" data-tag-preview>${renderTagPreview(draft.tags || "")}</div>
         `}
         <div class="field-shell"><div class="field-label-row"><label for="quick-text">내용</label>${insertButton}</div><textarea id="quick-text" name="quickText" data-draft="quick" data-draft-field="text" rows="9" placeholder="${splitMode === "pattern" ? `여러 줄 블록을 붙여넣으세요&#10;${escapeAttr(splitPattern)}&#10;다음 블록` : "여러 줄을 붙여넣으세요&#10;비밀번호 = 예시값&#10;--- 한 줄은 카드 안 구분선입니다"}" required>${escapeHtml(draft.text || "")}</textarea></div>
@@ -178,6 +183,69 @@ export function renderLineMovePanel(state) {
       <div class="line-move-actions">
         <button type="button" data-action="cancel-line-move">취소</button>
         <button type="button" class="primary" data-action="confirm-line-move" ${selectedId ? "" : "disabled"}>${icon("move")} 이동</button>
+      </div>
+    </aside>
+  `;
+}
+
+export function renderSelectionMovePanel(state) {
+  const draft = state.selectionMoveDraft || {};
+  const mode = draft.mode === "new-card" ? "new-card" : "card";
+  const query = draft.targetQuery || "";
+  const targets = targetCards(state, "", query);
+  const selectedId = targets.some((card) => card.id === draft.targetCardId) ? draft.targetCardId : targets[0]?.id || "";
+  const target = state.data.cards.find((card) => card.id === selectedId);
+  const tabs = realTabs(state);
+  const selectedTabId = tabs.some((tab) => tab.id === draft.targetTabId) ? draft.targetTabId : defaultTabId(state);
+  const targetTitle = target ? cardPath(state, target) : "대상 카드 없음";
+  const count = Number(draft.count || state.selected?.size || 0);
+  const sourceCount = Number(draft.sourceCount || 0);
+  return `
+    <aside class="panel line-move-panel selection-move-panel">
+      <header class="panel-head">
+        <div>
+          <h2>선택 줄 이동</h2>
+          <p class="panel-note">${count}줄${sourceCount ? ` · ${sourceCount}개 카드에서 선택됨` : ""}</p>
+        </div>
+        <button type="button" data-action="cancel-selection-move">닫기</button>
+      </header>
+      <label class="selection-move-mode">이동 방식
+        <select data-selection-move-mode>
+          <option value="card" ${mode === "card" ? "selected" : ""}>기존 카드로 이동</option>
+          <option value="new-card" ${mode === "new-card" ? "selected" : ""}>탭에 새 카드로 이동</option>
+        </select>
+      </label>
+      ${mode === "card" ? `
+        <div class="line-move-flow" aria-label="이동 흐름">
+          <section><span>From</span><strong>${count}줄 선택</strong></section>
+          <div class="line-move-arrow">${icon("move")}</div>
+          <section title="${escapeAttr(targetTitle)}"><span>To</span><strong>${escapeHtml(targetTitle)}</strong></section>
+        </div>
+        <label class="line-move-search">대상 카드 검색
+          <input data-selection-move-query value="${escapeAttr(query)}" placeholder="카드명 또는 탭 검색" autocomplete="off" />
+        </label>
+        <label>이동할 카드
+          <select name="targetCardId" data-selection-move-target ${targets.length ? "" : "disabled"}>
+            ${renderCardTargetOptions(state, { selectedId, query })}
+          </select>
+        </label>
+        ${targets.length ? `<p class="panel-note">대상 카드에 이미 있는 선택 줄은 그대로 두고, 다른 카드의 선택 줄만 합칩니다.</p>` : `<p class="panel-note">검색 조건에 맞는 대상 카드가 없습니다.</p>`}
+      ` : `
+        <div class="selection-move-grid">
+          <label>이동할 탭
+            <select data-selection-move-tab>
+              ${tabs.map((tab) => `<option value="${tab.id}" ${tab.id === selectedTabId ? "selected" : ""}>${escapeHtml(tab.name)}</option>`).join("")}
+            </select>
+          </label>
+          <label>새 카드 제목
+            <input data-selection-move-title value="${escapeAttr(draft.targetTitle || "")}" placeholder="비우면 선택 줄로 제목 생성" />
+          </label>
+        </div>
+        <p class="panel-note">선택한 줄을 빼서 새 카드로 만들고, 선택한 탭에 저장합니다.</p>
+      `}
+      <div class="line-move-actions">
+        <button type="button" data-action="cancel-selection-move">취소</button>
+        <button type="button" class="primary" data-action="confirm-selection-move" ${mode === "card" && !selectedId ? "disabled" : ""}>${icon("move")} 이동</button>
       </div>
     </aside>
   `;

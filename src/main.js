@@ -2,7 +2,6 @@ import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 import "./styles.css";
 import { createRenderers } from "./ui/renderers.js";
 import { icon } from "./ui/icons.js";
-import { bindQuickPastePreview } from "./ui/quickPastePreview.js";
 import { applyAppearanceSettings } from "./ui/appearance.js";
 import { escapeHtml } from "./ui/utils.js";
 import { cellKey } from "./ui/editableCell.js";
@@ -11,10 +10,10 @@ import { createCopyActions } from "./actions/copyActions.js";
 import { createDeleteConfirmActions } from "./actions/deleteConfirmActions.js";
 import { syncDesktopPreferencesForState } from "./actions/desktopIntegration.js";
 import { createDuplicateActions } from "./actions/duplicates.js";
+import { bindFormPanelEvents } from "./actions/formPanelEvents.js";
 import { createLineMoveActions } from "./actions/lineMoveActions.js";
 import { bindLineContextMenuActions } from "./actions/lineContextMenuActions.js";
 import { bindLockForms, createLockActions } from "./actions/lockActions.js";
-import { bindManagerControls } from "./actions/managerControls.js";
 import { createQuickInputActions } from "./actions/quickInputActions.js";
 import { createQuickLineActions } from "./actions/quickLineActions.js";
 import { createSplitPatternActions } from "./actions/splitPatternActions.js";
@@ -29,7 +28,7 @@ import { ITEM_TYPES, DEFAULT_SPLIT_PATTERN, applyExpiryToItems, allTags, copyTex
 import { createExpiryNotificationScheduler } from "./notifications/expiryNotifications.js";
 import { cardPayloadHasChanges, lineEditHasChanges } from "./saveDiff.js";
 import { applyDesktopPreferences, getStoragePathStatus, loadData, saveData } from "./storage.js";
-import { clearQuickDraft, clearQuickLineDraft, clearTableAddDraft, createEmptyDrafts, syncDraftField } from "./state/drafts.js";
+import { clearQuickDraft, clearQuickLineDraft, clearTableAddDraft, createEmptyDrafts } from "./state/drafts.js";
 import { bindEditorDraftPersistence, clearEditorDraftSnapshot, hasEditorDraftSnapshot, restoreEditorDraft } from "./state/editorDraftPersistence.js";
 import { defaultTabId, syncActiveTabs } from "./state/tabs.js";
 const app = document.querySelector("#app");
@@ -43,6 +42,7 @@ const state = {
   revealed: new Set(),
   expandedCards: new Set(),
   collapsedCards: new Set(),
+  collapsedSets: {},
   activePanel: null,
   editingCardId: null,
   editorDraft: null,
@@ -66,6 +66,7 @@ const state = {
   lineContextMenu: null,
   movingLineKey: null,
   lineMoveDraft: null,
+  selectionMoveDraft: null,
   desktopIntegration: { available: false, minimizeToTray: false, launchOnStartup: false, error: "" },
   managerPages: { tabs: 1, tags: 1 },
   managerFilters: { tabQuery: "", tabVisibility: "all", tabSort: "order", tagQuery: "", tagSort: "name" },
@@ -86,6 +87,8 @@ let groupSelectedInView = () => false;
 let copyText = async () => {};
 let setViewMode = () => {};
 let focusTableAdd = () => {};
+let toggleSetCollapse = () => {};
+let toggleVisibleSetCollapse = () => {};
 let selectManagerTag = () => {};
 let toggleTagQuery = () => {};
 let renameTag = () => {};
@@ -104,6 +107,8 @@ let revealTimers = new Map();
 let toastTimer = null;
 let isComposingSearch = false;
 let searchRenderTimer = null;
+let startSelectionMove = () => false, updateSelectionMoveMode = () => {}, updateSelectionMoveTarget = () => {}, updateSelectionMoveQuery = () => {};
+let updateSelectionMoveTab = () => {}, updateSelectionMoveTitle = () => {}, cancelSelectionMove = () => {}, confirmSelectionMove = () => false;
 
 async function syncDesktopPreferences({ silent = true } = {}) {
   return syncDesktopPreferencesForState({ state, applyDesktopPreferences, scheduleSave, render: () => render(), notify }, { silent });
@@ -673,143 +678,31 @@ function bindEvents() {
     scheduleSearchRender();
   });
 
-  document.querySelector("#quick-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    quickPaste(event.currentTarget);
-  });
-
-  document.querySelector("#card-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveEditor(event.currentTarget);
-  });
-  document.querySelector("#card-form")?.addEventListener("input", syncEditorDraft);
-  document.querySelector("#card-form")?.addEventListener("change", (event) => { syncEditorDraft(); if (event.target.name === "quickSplitMode") render(); });
-
-  document.querySelectorAll("[data-draft]").forEach((control) => {
-    const eventName = control.type === "checkbox" || control.tagName === "SELECT" ? "change" : "input";
-    control.addEventListener(eventName, (event) => {
-      syncDraftField(event.currentTarget, state);
-      if (event.currentTarget.dataset.draftRender === "true") render();
-    });
-  });
-  bindQuickPastePreview();
-
-  document.querySelector("[data-line-move-target]")?.addEventListener("change", (event) => {
-    updateLineMoveTarget(event.currentTarget.value);
-  });
-  document.querySelector("[data-line-move-query]")?.addEventListener("input", (event) => {
-    updateLineMoveQuery(event.currentTarget.value);
-  });
-
-  document.querySelector("[data-table-quick-add]")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    quickAddLineFromForm(event.currentTarget);
-  });
-
-  document.querySelectorAll("[data-quick-line-form]").forEach((form) => {
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      quickAddLineFromForm(event.currentTarget);
-    });
-  });
-
-  document.querySelectorAll("[data-field]").forEach((control) => {
-    control.addEventListener("input", (event) => {
-      const row = event.target.closest(".edit-line");
-      const field = event.target.dataset.field;
-      const value = field === "secret" ? event.target.checked : event.target.value;
-      const patch = { [field]: value };
-      if (field === "type" && value === "divider") {
-        patch.value = "---";
-        row.querySelector("[data-field='value']").value = "---";
-      }
-      updateEditorLine(row.dataset.id, patch);
-    });
-  });
-
-  document.querySelectorAll("[data-setting]").forEach((control) => {
-    control.addEventListener("change", (event) => {
-      const key = event.target.dataset.setting;
-      const type = event.target.dataset.settingType || "";
-      const value = event.target.type === "checkbox"
-        ? event.target.checked
-        : type === "string"
-          ? event.target.value
-          : Number(event.target.value);
-      updateSetting(key, value);
-    });
-  });
-
-  document.querySelectorAll("[data-cell-edit]").forEach((element) => {
-    element.addEventListener("dblclick", (event) => {
-      startCellEdit(event.currentTarget.dataset.card, event.currentTarget.dataset.id, event.currentTarget.dataset.field);
-    });
-  });
-
-  document.querySelectorAll("[data-cell-edit-input]").forEach((control) => {
-    control.addEventListener("input", (event) => {
-      state.cellEditValue = event.currentTarget.value;
-    });
-    control.addEventListener("change", (event) => {
-      state.cellEditValue = event.currentTarget.value;
-      if (event.currentTarget.tagName === "SELECT") saveCellEdit();
-    });
-    control.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.shiftKey && event.currentTarget.tagName !== "TEXTAREA") {
-        event.preventDefault();
-        saveCellEdit();
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        cancelCellEdit();
-      }
-    });
-    control.addEventListener("blur", () => {
-      if (state.editingCellKey) saveCellEdit();
-    });
-  });
-
-  document.querySelectorAll("[data-line-edit-field]").forEach((control) => {
-    control.addEventListener("input", (event) => {
-      const field = event.currentTarget.dataset.lineEditField;
-      const value = event.currentTarget.type === "checkbox" ? event.currentTarget.checked : event.currentTarget.value;
-      updateLineEditDraft({ [field]: value });
-      if (field === "type" && value === "divider") {
-        const valueInput = document.querySelector("[data-line-edit-value]");
-        if (valueInput) valueInput.value = "---";
-      }
-      if (field === "type") render();
-    });
-    control.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.shiftKey && event.currentTarget.tagName !== "TEXTAREA") {
-        event.preventDefault();
-        saveLineEdit();
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        cancelLineEdit();
-      }
-    });
-  });
-
-  document.querySelectorAll("[data-tag-input]").forEach((input) => {
-    const preview = input.closest("form")?.querySelector("[data-tag-preview]");
-    const sync = () => {
-      if (preview) preview.innerHTML = renderTagPreview(input.value);
-    };
-    sync();
-    input.addEventListener("input", sync);
-  });
-
-  document.querySelector("#import-file")?.addEventListener("change", (event) => handleImport(event.target.files?.[0]));
-
-  bindManagerControls({ state, render });
-
-  document.querySelectorAll("[data-action='select-line']").forEach((box) => {
-    box.addEventListener("change", (event) => {
-      toggleSelected(event.target.dataset.card, event.target.dataset.id, event.target.checked);
-      render();
-    });
+  bindFormPanelEvents({
+    state,
+    render,
+    quickPaste,
+    saveEditor,
+    syncEditorDraft,
+    quickAddLineFromForm,
+    updateLineMoveTarget,
+    updateLineMoveQuery,
+    updateSelectionMoveMode,
+    updateSelectionMoveTarget,
+    updateSelectionMoveQuery,
+    updateSelectionMoveTab,
+    updateSelectionMoveTitle,
+    updateEditorLine,
+    updateSetting,
+    startCellEdit,
+    saveCellEdit,
+    cancelCellEdit,
+    updateLineEditDraft,
+    saveLineEdit,
+    cancelLineEdit,
+    renderTagPreview,
+    handleImport,
+    toggleSelected
   });
 }
 
@@ -866,7 +759,20 @@ function bindEvents() {
   render: () => render()
 }));
 
-({ selectedItemsInView, copySelectedInView, clearSelection, groupSelectedInView } = createSelectionActions({
+({
+  selectedItemsInView,
+  copySelectedInView,
+  clearSelection,
+  groupSelectedInView,
+  startSelectionMove,
+  updateSelectionMoveMode,
+  updateSelectionMoveTarget,
+  updateSelectionMoveQuery,
+  updateSelectionMoveTab,
+  updateSelectionMoveTitle,
+  cancelSelectionMove,
+  confirmSelectionMove
+} = createSelectionActions({
   state,
   copyText,
   selectedItemsForCard,
@@ -875,7 +781,7 @@ function bindEvents() {
   notify
 }));
 
-({ setViewMode, focusTableAdd } = createViewActions({
+({ setViewMode, focusTableAdd, toggleSetCollapse, toggleVisibleSetCollapse } = createViewActions({
   state,
   render: () => render()
 }));
@@ -954,11 +860,16 @@ const handleAction = createUiActionHandler({
   copySelectedInView,
   clearSelection,
   groupSelectedInView,
+  startSelectionMove,
+  cancelSelectionMove,
+  confirmSelectionMove,
   copyText,
   copySplitPattern,
   insertSplitPattern,
   setViewMode,
   focusTableAdd,
+  toggleSetCollapse,
+  toggleVisibleSetCollapse,
   handleExport,
   handleDataPathChange,
   handleDataPathReset,
@@ -983,6 +894,7 @@ bindKeyboardShortcuts({
   cancelCellEdit,
   cancelLineEdit,
   cancelLineMove,
+  cancelSelectionMove,
   closeEditor,
   saveCellEdit,
   saveLineEdit,

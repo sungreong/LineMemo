@@ -239,6 +239,7 @@
   }
 
   .quick-options-row,
+  .quick-card-meta-row,
   .pattern-control-row,
   .paste-options,
   .paste-options.has-pattern {
@@ -250,6 +251,10 @@
   }
 
   .line-move-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .selection-move-grid {
     grid-template-columns: 1fr;
   }
 

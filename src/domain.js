@@ -318,6 +318,12 @@ export function applyExpiryToItems(items, expiresAt) {
   return items.map((item) => (item.type === "divider" ? item : { ...item, expiresAt: normalized }));
 }
 
+export function applyGroupToItems(items, groupName) {
+  const group = String(groupName || "").trim();
+  if (!group) return items;
+  return items.map((item) => (item.type === "divider" ? item : { ...item, group }));
+}
+
 export function splitPasteText(text, options = {}) {
   const raw = String(text || "");
   if (options.splitMode !== "pattern") {

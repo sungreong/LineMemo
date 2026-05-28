@@ -128,9 +128,11 @@
 }
 
 .line-table {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
   max-height: calc(100vh - 204px);
+  height: auto;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -138,8 +140,11 @@
 }
 
 .table-scroll-body {
+  flex: 0 1 auto;
   min-height: 0;
-  overflow: auto;
+  max-height: calc(100vh - 270px);
+  overflow-y: auto;
+  overflow-x: auto;
   scrollbar-gutter: stable;
 }
 
@@ -258,8 +263,31 @@
   font-size: var(--font-xs);
 }
 
+.table-set-row.is-collapsible {
+  grid-template-columns: auto minmax(118px, auto) minmax(0, 1fr) auto;
+}
+
+.set-collapse-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  min-width: 24px;
+  min-height: 22px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent-strong);
+}
+
+.set-collapse-toggle:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--accent), var(--line) 58%);
+  background: color-mix(in oklch, var(--accent), var(--surface) 88%);
+}
+
 .table-set-row strong,
-.table-set-row span {
+.table-set-row span,
+.copy-set-row strong,
+.copy-set-row span {
   overflow: hidden;
   min-width: 0;
   text-overflow: ellipsis;
@@ -270,16 +298,54 @@
   color: var(--accent-strong);
 }
 
-.table-set-row div {
+.table-set-row .set-actions {
   display: flex;
+  flex: 0 0 auto;
   gap: 4px;
   justify-content: flex-end;
 }
 
-.table-set-row button {
+.table-set-row .set-actions button {
   min-height: 22px;
   padding-inline: 7px;
   font-size: var(--font-xs);
+}
+
+.set-summary {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.set-search-status {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 60%);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.table-set-row.is-collapsed {
+  background: color-mix(in oklch, var(--accent), var(--surface) 91%);
+}
+
+@media (max-width: 760px) {
+  .table-set-row,
+  .table-set-row.is-collapsible {
+    grid-template-columns: auto minmax(92px, 1fr) auto;
+  }
+
+  .table-set-row .set-summary {
+    display: none;
+  }
+
+  .table-set-row .set-actions button {
+    padding-inline: 5px;
+  }
 }
 
 .table-row:last-child {

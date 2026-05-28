@@ -86,11 +86,16 @@ export function createUiActionHandler(deps) {
     copySelectedInView,
     clearSelection,
     groupSelectedInView = () => false,
+    startSelectionMove = () => false,
+    cancelSelectionMove = () => {},
+    confirmSelectionMove = () => false,
     copyText,
     copySplitPattern = () => {},
     insertSplitPattern = () => {},
     setViewMode,
     focusTableAdd,
+    toggleSetCollapse = () => {},
+    toggleVisibleSetCollapse = () => {},
     handleExport,
     handleDataPathChange = async () => {},
     handleDataPathReset = async () => {},
@@ -116,6 +121,7 @@ export function createUiActionHandler(deps) {
     }
     if (action === "close-panel" && event.target === element) {
       if (state.activePanel === "line-move") cancelLineMove();
+      else if (state.activePanel === "selection-move") cancelSelectionMove();
       else openPanel(state.activePanel);
     }
     if (action === "duplicate-cancel") {
@@ -142,6 +148,8 @@ export function createUiActionHandler(deps) {
       render();
     }
     if (action === "set-view") setViewMode(element.dataset.mode);
+    if (action === "toggle-set-collapse") toggleSetCollapse(element.dataset.setKey);
+    if (action === "toggle-visible-sets") toggleVisibleSetCollapse(String(element.dataset.setKeys || "").split("|"));
     if (action === "toggle-view") {
       state.viewMode = state.viewMode === "table" ? "cards" : "table";
       localStorage.setItem("linememo-view-mode", state.viewMode);
@@ -175,6 +183,9 @@ export function createUiActionHandler(deps) {
     if (action === "move-line") startLineMove(element.dataset.card, id);
     if (action === "cancel-line-move") cancelLineMove();
     if (action === "confirm-line-move") confirmLineMove();
+    if (action === "move-selected") startSelectionMove();
+    if (action === "cancel-selection-move") cancelSelectionMove();
+    if (action === "confirm-selection-move") confirmSelectionMove();
     if (action === "new-card") startNewCard();
     if (action === "new-tab") createTab();
     if (action === "manager-page") {

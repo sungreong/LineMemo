@@ -12,9 +12,9 @@ import {
   splitPasteText,
   sortedItems
 } from "../domain.js";
-import { renderLineMovePanel, renderQuickPastePanel } from "./destinationRenderers.js";
+import { renderLineMovePanel, renderQuickPastePanel, renderSelectionMovePanel } from "./destinationRenderers.js";
 import { applyAppearanceSettings } from "./appearance.js";
-import { groupCopyKey, relatedLineItems, renderCopySetHeader, renderLineLabelHtml } from "./copySetRenderers.js";
+import { groupCopyKey, relatedLineItems, renderCopySetHeader, renderLineLabelHtml, setCollapseKey } from "./copySetRenderers.js";
 import { renderEditableCell as renderCell } from "./editableCell.js";
 import { expiryStateClass } from "./expiryBadge.js";
 import { icon } from "./icons.js";
@@ -46,6 +46,28 @@ function assertRendererDeps(ctx) {
   }
 }
 
+function capturePreservedScroll(root) {
+  const positions = new Map();
+  if (typeof root?.querySelectorAll !== "function") return positions;
+  root.querySelectorAll("[data-scroll-preserve]").forEach((element) => {
+    const key = element.dataset?.scrollPreserve || element.getAttribute?.("data-scroll-preserve");
+    if (!key) return;
+    positions.set(key, { left: element.scrollLeft || 0, top: element.scrollTop || 0 });
+  });
+  return positions;
+}
+
+function restorePreservedScroll(root, positions) {
+  if (!positions?.size || typeof root?.querySelectorAll !== "function") return;
+  root.querySelectorAll("[data-scroll-preserve]").forEach((element) => {
+    const key = element.dataset?.scrollPreserve || element.getAttribute?.("data-scroll-preserve");
+    const position = positions.get(key);
+    if (!position) return;
+    element.scrollLeft = position.left;
+    element.scrollTop = position.top;
+  });
+}
+
 export function createRenderers(ctx) {
   assertRendererDeps(ctx);
   const { app, state, bindEvents, clampManagerPage, renderManagerPager, selectedItemsForCard } = ctx;
@@ -72,16 +94,20 @@ function focusAfterRender(key) {
             ? "[data-line-edit-value]"
             : state.activePanel === "line-move"
               ? "[data-line-move-query]"
+              : state.activePanel === "selection-move"
+                ? "[data-selection-move-query], [data-selection-move-title]"
             : "#card-title";
     document.querySelector(selector)?.focus();
   });
 }
 
 function render() {
+  const preservedScroll = capturePreservedScroll(app);
   applyAppearanceSettings(state.data?.settings);
   if (state.lock?.locked) {
     app.innerHTML = renderLockScreen();
     bindEvents();
+    restorePreservedScroll(app, preservedScroll);
     focusAfterRender("lock");
     return;
   }
@@ -142,6 +168,7 @@ function render() {
     </main>
   `;
   bindEvents();
+  restorePreservedScroll(app, preservedScroll);
   focusAfterRender(state.activePanel ? `${state.activePanel}:${state.editingCardId || state.editingLineKey || ""}` : "");
 }
 
@@ -149,6 +176,11 @@ function renderViewSwitch(cards = []) {
   const tableMode = state.viewMode === "table";
   const denseCard = state.denseMode;
   const allCollapsed = cards.length > 0 && cards.every((card) => state.collapsedCards.has(card.id));
+  const tableSetKeys = tableMode ? collectTableSetKeys(cards) : [];
+  const allSetsCollapsed = tableSetKeys.length > 0 && tableSetKeys.every((key) => state.collapsedSets?.[key]);
+  const searchActive = Boolean(state.query.trim());
+  const setToggleDisabled = !tableSetKeys.length || searchActive;
+  const setToggleTitle = searchActive ? "검색 중에는 결과를 펼쳐 표시합니다" : allSetsCollapsed ? "보이는 세트 전체 펼치기" : "보이는 세트 전체 접기";
   return `
     <div class="view-group">
       <span>보기</span>
@@ -156,12 +188,30 @@ function renderViewSwitch(cards = []) {
         <button type="button" class="view-card-button ${tableMode ? "" : "active-toggle"}" data-action="set-view" data-mode="cards" title="카드 보기" aria-label="카드 보기" aria-pressed="${!tableMode}">${icon("cards")}<span>카드</span></button>
         <button type="button" class="view-table-button ${tableMode ? "active-toggle" : ""}" data-action="set-view" data-mode="table" title="표 보기" aria-label="표 보기" aria-pressed="${tableMode}">${icon("table")}<span>표</span></button>
       </div>
-      ${tableMode ? "" : `
+      ${tableMode ? `
+        <button type="button" class="card-tool-toggle table-set-toggle ${allSetsCollapsed && !searchActive ? "active-toggle" : ""}" data-action="toggle-visible-sets" data-set-keys="${escapeAttr(tableSetKeys.join("|"))}" title="${escapeAttr(setToggleTitle)}" aria-label="${escapeAttr(setToggleTitle)}" aria-pressed="${allSetsCollapsed && !searchActive}" ${setToggleDisabled ? "disabled" : ""}>${icon(allSetsCollapsed && !searchActive ? "chevronDown" : "chevronRight")}<span>${allSetsCollapsed && !searchActive ? "세트 펼침" : "세트 접기"}</span></button>
+      ` : `
         <button type="button" class="card-tool-toggle density-subtoggle ${denseCard ? "active-toggle" : ""}" data-action="toggle-density" title="카드 줄을 더 촘촘하게 표시" aria-label="카드 압축 표시" aria-pressed="${denseCard}">${icon("compact")}<span>압축</span></button>
         <button type="button" class="card-tool-toggle collapse-all-toggle" data-action="toggle-collapse-all" title="${allCollapsed ? "전체 펼치기" : "전체 접기"}" aria-label="${allCollapsed ? "전체 펼치기" : "전체 접기"}">${icon(allCollapsed ? "chevronDown" : "chevronRight")}<span>${allCollapsed ? "펼침" : "접기"}</span></button>
       `}
     </div>
   `;
+}
+
+function collectTableSetKeys(cards = []) {
+  const keys = new Set();
+  for (const card of cards) {
+    const seenGroups = new Set();
+    for (const item of sortedItems(card.items)) {
+      const groupItems = relatedLineItems(card, item);
+      if (item.type === "divider" || groupItems.length < 2) continue;
+      const group = groupItems[0].group || item.group;
+      if (!group || seenGroups.has(group)) continue;
+      seenGroups.add(group);
+      keys.add(setCollapseKey(card.id, group));
+    }
+  }
+  return [...keys];
 }
 
 function renderLockScreen() {
@@ -195,6 +245,7 @@ function renderSelectionBar(cards) {
       <strong>${selected.length}줄 선택됨</strong>
       <button type="button" class="primary" data-action="copy-selected-global">${icon("copy")} 값 복사</button>
       <button type="button" data-action="copy-selected-global-labels">라벨 포함</button>
+      <button type="button" data-action="move-selected">${icon("move")} 이동</button>
       <button type="button" data-action="group-selected">세트 지정</button>
       <button type="button" data-action="clear-selection">선택 해제</button>
     </div>
@@ -216,19 +267,42 @@ function renderTableView(cards) {
       return state.tableSortAsc ? result : -result;
     });
 
-  if (!rows.length) return `<section class="line-table ${showTabColumn ? "with-tabs" : "single-tab"}">${renderTableHead(showTabColumn)}<div class="table-scroll-body"></div>${renderTableQuickAdd(cards, showTabColumn)}</section><section class="empty compact-empty"><h2>표시할 줄이 없습니다.</h2></section>`;
+  if (!rows.length) return `<section class="line-table ${showTabColumn ? "with-tabs" : "single-tab"}">${renderTableHead(showTabColumn)}<div class="table-scroll-body" data-scroll-preserve="${escapeAttr(tableScrollKey())}"></div>${renderTableQuickAdd(cards, showTabColumn)}</section><section class="empty compact-empty"><h2>표시할 줄이 없습니다.</h2></section>`;
   return `
     <section class="line-table ${showTabColumn ? "with-tabs" : "single-tab"}">
       ${renderTableHead(showTabColumn)}
-      <div class="table-scroll-body">${renderTableRows(rows, showTabColumn)}</div>
+      <div class="table-scroll-body" data-scroll-preserve="${escapeAttr(tableScrollKey())}">${renderTableRows(rows, showTabColumn)}</div>
       ${renderTableQuickAdd(cards, showTabColumn)}
     </section>
   `;
 }
 
+function tableScrollKey() {
+  const tabs = selectedTabIds(state).join(",") || "all";
+  const query = state.query || "";
+  const direction = state.tableSortAsc ? "asc" : "desc";
+  return `table:${tabs}:${direction}:${query}`;
+}
+
 function renderTableRows(rows, showTabColumn) {
   const seenSets = new Set();
-  return rows.map(({ card, item }) => `${renderCopySetHeader(card, item, seenSets, "table")}${renderTableRow(card, item, showTabColumn)}`).join("");
+  const rendered = [];
+  for (const { card, item } of rows) {
+    const groupItems = relatedLineItems(card, item);
+    const hasSet = groupItems.length > 1;
+    const group = hasSet ? groupItems[0].group || item.group : "";
+    const key = hasSet ? setCollapseKey(card.id, group) : "";
+    const collapsed = Boolean(key && state.collapsedSets?.[key]);
+    const forcedOpen = hasSet && groupItems.some((entry) => itemMatchesActiveQuery(entry));
+    rendered.push(renderCopySetHeader(card, item, seenSets, "table", {
+      isCollapsed: collapsed,
+      isForcedOpenBySearch: forcedOpen,
+      collapsible: true
+    }));
+    if (hasSet && collapsed && !forcedOpen) continue;
+    rendered.push(renderTableRow(card, item, showTabColumn));
+  }
+  return rendered.join("");
 }
 
 function renderTableHead(showTabColumn) {
@@ -567,13 +641,14 @@ function renderActivePanel() {
   if (state.activePanel === "editor") return renderEditor();
   if (state.activePanel === "line-editor") return renderLineEditorModal(state, tabNameForCard);
   if (state.activePanel === "line-move") return renderLineMovePanel(state);
+  if (state.activePanel === "selection-move") return renderSelectionMovePanel(state);
   return "";
 }
 
 function renderModalPanel() {
   const panel = renderActivePanel();
   if (!panel) return "";
-  const labels = { quick: "빠른 입력", tabs: "탭/카드 관리", tags: "태그 관리", settings: "설정", editor: "카드 편집", "line-editor": "줄 편집", "line-move": "줄 이동" };
+  const labels = { quick: "빠른 입력", tabs: "탭/카드 관리", tags: "태그 관리", settings: "설정", editor: "카드 편집", "line-editor": "줄 편집", "line-move": "줄 이동", "selection-move": "선택 줄 이동" };
   return `<div class="modal-backdrop" data-action="close-panel" role="presentation"><div class="modal-sheet" role="dialog" aria-modal="true" aria-label="${escapeAttr(labels[state.activePanel] || "패널")}">${panel}</div></div>`;
 }
 
@@ -708,7 +783,7 @@ function renderEditor() {
   const splitMode = draft.quickSplitMode === "pattern" ? "pattern" : "line";
   const splitPattern = draft.quickSplitPattern || DEFAULT_SPLIT_PATTERN;
   const summary = draftLineSummary(draft.quickValues, splitMode, splitPattern);
-  const tabField = `<label>탭<select name="tabId">${state.data.tabs.filter((tab) => tab.id !== "all").map((tab) => `<option value="${tab.id}" ${tab.id === draft.tabId ? "selected" : ""}>${escapeHtml(tab.name)}</option>`).join("")}</select></label>`;
+  const tabField = `<label class="editor-tab-field">소속 탭<select name="tabId">${state.data.tabs.filter((tab) => tab.id !== "all").map((tab) => `<option value="${tab.id}" ${tab.id === draft.tabId ? "selected" : ""}>${escapeHtml(tab.name)}</option>`).join("")}</select><span class="field-help">카드를 어느 탭에서 볼지 선택합니다.</span></label>`;
   const lineSection = `
     <section class="editor-line-section">
       <div class="editor-line-head">
@@ -726,9 +801,9 @@ function renderEditor() {
           <button type="button" data-action="close-editor">닫기</button>
         </header>
         <div class="editor-meta-grid">
-          <label>제목<input id="card-title" name="title" value="${escapeAttr(draft.title)}" placeholder="비우면 첫 줄로 제목 생성" ${isNew ? "" : "required"} /></label>
           ${tabField}
-          <label>태그<input name="tags" data-tag-input value="${escapeAttr(draft.tags)}" placeholder="apikey, 비밀번호, prod" autocomplete="off" /></label>
+          <label class="editor-title-field">카드 제목<input id="card-title" name="title" value="${escapeAttr(draft.title)}" placeholder="비우면 첫 줄로 제목 생성" ${isNew ? "" : "required"} /></label>
+          <label class="editor-tags-field">태그<input name="tags" data-tag-input value="${escapeAttr(draft.tags)}" placeholder="apikey, 비밀번호, prod" autocomplete="off" /></label>
         </div>
         <div class="tag-preview" data-tag-preview>${renderTagPreview(draft.tags)}</div>
         ${renderTagSuggestions(state, draft)}

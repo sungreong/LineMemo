@@ -2,7 +2,7 @@ import { DEFAULT_SPLIT_PATTERN } from "../domain.js";
 
 export function createEmptyDrafts() {
   return {
-    quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
+    quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", group: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
     tableAdd: { cardId: "", lineLabel: "", lineValue: "", lineExpiresAt: "" },
     quickLines: {}
   };
@@ -16,7 +16,7 @@ export function quickLineDraft(state, cardId) {
 }
 
 export function clearQuickDraft(state) {
-  state.drafts.quick = { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN };
+  state.drafts.quick = { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", group: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN };
 }
 
 export function clearTableAddDraft(state, cardId = "") {

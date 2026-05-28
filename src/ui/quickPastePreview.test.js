@@ -11,6 +11,7 @@ describe("quick paste preview", () => {
     expect(preview.count).toBe(parsed.length);
     expect(preview.itemLabel).toBe("줄");
     expect(preview.splitLabel).toBe("줄바꿈");
+    expect(preview.group).toBe("");
     expect(preview.samples.map((item) => item.label)).toEqual(["A.1", "A.2", "password"]);
     expect(preview.sensitiveCount).toBe(1);
     expect(preview.samples.at(-1).value).toBe("민감할 수 있음");
@@ -35,5 +36,13 @@ describe("quick paste preview", () => {
     expect(html).toContain("1개 줄 추가 예정");
     expect(html).toContain("&lt;script&gt;x&lt;/script&gt;");
     expect(html).not.toContain("<script>x</script>");
+  });
+
+  test("shows the copy set name in the preview", () => {
+    const preview = buildQuickPastePreview({ text: "id = lee\npw = secret", group: "로그인" });
+    const html = renderQuickPastePreview({ text: "id = lee\npw = secret", group: "로그인" });
+
+    expect(preview.group).toBe("로그인");
+    expect(html).toContain("세트: 로그인");
   });
 });

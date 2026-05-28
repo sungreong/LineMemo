@@ -23,6 +23,7 @@ export function bindKeyboardShortcuts(deps) {
     cancelCellEdit,
     cancelLineEdit,
     cancelLineMove = () => {},
+    cancelSelectionMove = () => {},
     closeEditor,
     saveCellEdit,
     saveLineEdit,
@@ -92,6 +93,7 @@ export function bindKeyboardShortcuts(deps) {
       else if (hadLine) cancelLineEdit();
       else if (hadEditor) closeEditor();
       else if (state.activePanel === "line-move") cancelLineMove();
+      else if (state.activePanel === "selection-move") cancelSelectionMove();
       else if (hadPanel) openPanel(state.activePanel);
       if (hadCell || hadLine || hadEditor || hadPanel) {
         event.preventDefault();

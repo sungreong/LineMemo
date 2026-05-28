@@ -89,4 +89,17 @@ describe("global shortcuts", () => {
     keydown(keyEvent({ key: "s", ctrlKey: true }));
     expect(calls).toEqual(["save-cell"]);
   });
+
+  test("Escape closes the selected-row move panel", () => {
+    const { calls, keydown, deps } = bindForTest({
+      cancelSelectionMove: () => calls.push("cancel-selection-move")
+    });
+    deps.state.activePanel = "selection-move";
+    const event = keyEvent({ key: "Escape" });
+
+    keydown(event);
+
+    expect(calls).toEqual(["cancel-selection-move"]);
+    expect(event.prevented).toBe(true);
+  });
 });

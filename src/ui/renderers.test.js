@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createEmptyData, DEFAULT_SPLIT_PATTERN, makeCard, parseLines } from "../domain.js";
+import { setCollapseKey } from "./copySetRenderers.js";
 import { createRenderers } from "./renderers.js";
 
 describe("createRenderers", () => {
@@ -230,6 +231,65 @@ describe("createRenderers", () => {
     expect(app.innerHTML).toContain("ChatOpenAI · 2");
   });
 
+  test("collapses table copy sets while keeping set actions available", () => {
+    const data = createEmptyData();
+    data.settings.acknowledgedPlainTextWarning = true;
+    const card = makeCard({
+      title: "배포",
+      tabId: "code",
+      description: "",
+      tags: [],
+      items: [
+        { id: "line-a", label: "계정", value: "deploy-user", group: "Deploy", type: "text", secret: false, order: 1 },
+        { id: "line-b", label: "토큰", value: "deploy-token", group: "Deploy", type: "text", secret: false, order: 2 },
+        { id: "line-c", label: "메모", value: "plain-note", group: "", type: "text", secret: false, order: 3 }
+      ]
+    });
+    data.cards = [card];
+    const app = { innerHTML: "" };
+    const state = makeRendererState(data, {
+      activeTabId: "code",
+      activeTabIds: ["code"],
+      viewMode: "table",
+      collapsedSets: { [setCollapseKey(card.id, "Deploy")]: true }
+    });
+    const { render } = createRenderers({
+      app,
+      state,
+      bindEvents: () => {},
+      clampManagerPage: () => ({ page: 1, pageCount: 1, start: 0, end: 5 }),
+      renderManagerPager: () => "",
+      selectedItemsForCard: () => []
+    });
+
+    render();
+    expect(app.innerHTML).toContain("세트 Deploy · 2줄");
+    expect(app.innerHTML).toContain('data-action="toggle-visible-sets"');
+    expect(app.innerHTML).toContain("세트 펼침");
+    expect(app.innerHTML).toContain("2줄 접힘");
+    expect(app.innerHTML).toContain('data-action="toggle-set-collapse"');
+    expect(app.innerHTML).toContain('aria-expanded="false"');
+    expect(app.innerHTML).toContain('data-action="copy-line-group"');
+    expect(app.innerHTML).toContain('data-action="copy-line-group-tab"');
+    expect(app.innerHTML).toContain('data-action="copy-line-group-next"');
+    expect(app.innerHTML).not.toContain("deploy-user");
+    expect(app.innerHTML).not.toContain("deploy-token");
+    expect(app.innerHTML).toContain("plain-note");
+
+    state.query = "deploy-token";
+    render();
+    expect(app.innerHTML).toContain("검색 결과 표시 중");
+    expect(app.innerHTML).toContain('aria-expanded="true"');
+    expect(app.innerHTML).toContain('title="검색 중에는 결과를 펼쳐 표시합니다"');
+    expect(app.innerHTML).toContain("table-set-toggle");
+    expect(app.innerHTML).toContain("disabled");
+    expect(app.innerHTML).toContain("deploy-token");
+
+    state.query = "";
+    render();
+    expect(app.innerHTML).not.toContain("deploy-token");
+  });
+
   test("does not leak secret values through hidden cell titles", () => {
     const data = createEmptyData();
     data.settings.acknowledgedPlainTextWarning = true;
@@ -431,7 +491,7 @@ describe("createRenderers", () => {
       viewMode: "table",
       showTableAdd: true,
       drafts: {
-        quick: { title: "드래프트", tags: "api", text: "one\ntwo", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
+        quick: { title: "드래프트", tags: "api", text: "one\ntwo", targetCardId: "", baseLabel: "", group: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
         tableAdd: { cardId: data.cards[0].id, lineLabel: "pw", lineValue: "typed-value", lineExpiresAt: "2026-12-31" },
         quickLines: {}
       }
@@ -459,6 +519,8 @@ describe("createRenderers", () => {
     expect(app.innerHTML).toContain("one\ntwo");
     startNewCardState(state);
     render();
+    expect(app.innerHTML.indexOf("소속 탭")).toBeLessThan(app.innerHTML.indexOf("카드 제목"));
+    expect(app.innerHTML).toContain("카드를 어느 탭에서 볼지 선택합니다.");
     expect(app.innerHTML).toContain("new-card-help");
     expect(app.innerHTML).toContain("붙여넣은 줄");
     expect(app.innerHTML).toContain("제목이 비어 있으면 첫 줄 사용");
@@ -498,7 +560,7 @@ describe("createRenderers", () => {
       viewMode: "table",
       showTableAdd: true,
       drafts: {
-        quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
+        quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", group: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN },
         tableAdd: { cardId: card.id, lineLabel: "", lineValue: "alpha\n  beta", lineExpiresAt: "" },
         quickLines: {}
       }
@@ -522,6 +584,47 @@ describe("createRenderers", () => {
     render();
     expect(app.innerHTML).toContain('<textarea class="cell-edit-input');
     expect(app.innerHTML).toContain("first\n  second</textarea>");
+  });
+
+  test("preserves table scroll position across rerenders", () => {
+    const data = createEmptyData();
+    data.settings.acknowledgedPlainTextWarning = true;
+    data.cards = [
+      makeCard({ title: "A", tabId: "inbox", description: "", tags: [], items: parseLines("one") }),
+      makeCard({ title: "B", tabId: "inbox", description: "", tags: [], items: parseLines("two") })
+    ];
+    const beforeRender = { dataset: { scrollPreserve: "table:all:asc:" }, scrollLeft: 18, scrollTop: 420 };
+    const afterRender = { dataset: { scrollPreserve: "table:all:asc:" }, scrollLeft: 0, scrollTop: 0 };
+    const app = {
+      _html: "",
+      _rendered: false,
+      get innerHTML() {
+        return this._html;
+      },
+      set innerHTML(value) {
+        this._html = value;
+        this._rendered = true;
+      },
+      querySelectorAll(selector) {
+        if (selector !== "[data-scroll-preserve]") return [];
+        return this._rendered ? [afterRender] : [beforeRender];
+      }
+    };
+    const state = makeRendererState(data, { viewMode: "table" });
+    const { render } = createRenderers({
+      app,
+      state,
+      bindEvents: () => {},
+      clampManagerPage: () => ({ page: 1, pageCount: 1, start: 0, end: 5 }),
+      renderManagerPager: () => "",
+      selectedItemsForCard: () => []
+    });
+
+    render();
+
+    expect(app.innerHTML).toContain('data-scroll-preserve="table:all:asc:"');
+    expect(afterRender.scrollTop).toBe(420);
+    expect(afterRender.scrollLeft).toBe(18);
   });
 
   test("renders settings guidance and keyboard shortcuts", () => {
@@ -612,8 +715,10 @@ describe("createRenderers", () => {
     expect(app.innerHTML).toContain("현재 탭 0카드 · 0줄");
     expect(app.innerHTML).toContain("계정/접속 탭 · 1카드 · 1줄");
     expect(app.innerHTML).toContain("계정 카드 · 1줄");
+    expect(app.innerHTML).toContain("quick-card-meta-row");
     expect(app.innerHTML).toContain('name="quickTitle"');
     expect(app.innerHTML).toContain('name="quickBaseLabel"');
+    expect(app.innerHTML).toContain('name="quickGroup"');
     expect(app.innerHTML).toContain('name="quickSplitMode"');
     expect(app.innerHTML).not.toContain('name="quickSplitPattern"');
     expect(app.innerHTML).not.toContain('data-action="insert-split-pattern"');
@@ -635,6 +740,7 @@ describe("createRenderers", () => {
     expect(app.innerHTML).toContain("현재 1줄 있음");
     expect(app.innerHTML).toContain("줄 추가");
     expect(app.innerHTML).not.toContain('name="quickTitle"');
+    expect(app.innerHTML).toContain('name="quickGroup"');
   });
 
   test("renders line move action and target-card modal", () => {
@@ -673,6 +779,48 @@ describe("createRenderers", () => {
     expect(app.innerHTML).not.toContain(`<option value="${source.id}"`);
   });
 
+  test("renders selected-row move action and destination modal", () => {
+    const data = createEmptyData();
+    const source = makeCard({ title: "원본", tabId: "inbox", description: "", tags: [], items: parseLines("token source\nsecret source") });
+    const target = makeCard({ title: "대상", tabId: "api", description: "", tags: [], items: parseLines("key target") });
+    data.cards = [source, target];
+    const selectedLine = source.items[0];
+    const app = { innerHTML: "" };
+    const state = makeRendererState(data, {
+      selected: new Set([`${source.id}:${selectedLine.id}`]),
+      viewMode: "table"
+    });
+    const { render } = createRenderers({
+      app,
+      state,
+      bindEvents: () => {},
+      clampManagerPage: () => ({ page: 1, pageCount: 1, start: 0, end: 5 }),
+      renderManagerPager: () => "",
+      selectedItemsForCard: (card) => card.items.filter((item) => state.selected.has(`${card.id}:${item.id}`))
+    });
+
+    render();
+    expect(app.innerHTML).toContain('data-action="move-selected"');
+    expect(app.innerHTML).toContain("1줄 선택됨");
+
+    state.activePanel = "selection-move";
+    state.selectionMoveDraft = { mode: "card", targetCardId: target.id, targetQuery: "", count: 1, sourceCount: 1 };
+    render();
+    expect(app.innerHTML).toContain("선택 줄 이동");
+    expect(app.innerHTML).toContain('data-selection-move-mode');
+    expect(app.innerHTML).toContain("기존 카드로 이동");
+    expect(app.innerHTML).toContain("탭에 새 카드로 이동");
+    expect(app.innerHTML).toContain('data-selection-move-query');
+    expect(app.innerHTML).toContain('data-selection-move-target');
+    expect(app.innerHTML).toContain("API 탭 · 대상 카드");
+
+    state.selectionMoveDraft = { mode: "new-card", targetTabId: "api", targetTitle: "옮긴 카드", count: 1, sourceCount: 1 };
+    render();
+    expect(app.innerHTML).toContain('data-selection-move-tab');
+    expect(app.innerHTML).toContain('data-selection-move-title');
+    expect(app.innerHTML).toContain("옮긴 카드");
+  });
+
   test("renders delete confirmation with temporary skip action", () => {
     const data = createEmptyData();
     const app = { innerHTML: "" };
@@ -709,6 +857,7 @@ function makeRendererState(data, overrides = {}) {
     revealed: new Set(),
     expandedCards: new Set(),
     collapsedCards: new Set(),
+    collapsedSets: {},
     activePanel: null,
     editingCardId: null,
     editorDraft: null,
@@ -727,9 +876,10 @@ function makeRendererState(data, overrides = {}) {
     duplicateConflict: null,
     managerPages: { tabs: 1, tags: 1 },
     managerFilters: { tabQuery: "", tabVisibility: "all", tabSort: "order", tagQuery: "", tagSort: "name" },
-    drafts: { quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN }, tableAdd: { cardId: "", lineLabel: "", lineValue: "", lineExpiresAt: "" }, quickLines: {} },
+    drafts: { quick: { title: "", tags: "", text: "", targetCardId: "", baseLabel: "", group: "", expiresAt: "", splitMode: "line", splitPattern: DEFAULT_SPLIT_PATTERN }, tableAdd: { cardId: "", lineLabel: "", lineValue: "", lineExpiresAt: "" }, quickLines: {} },
     movingLineKey: null,
     lineMoveDraft: null,
+    selectionMoveDraft: null,
     deleteConfirm: null,
     deleteConfirmMutedUntil: 0,
     lock: { locked: false, reason: "", unlockError: "" },

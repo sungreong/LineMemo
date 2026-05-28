@@ -82,6 +82,15 @@ describe("quick input actions", () => {
     expect(state.data.cards[0].items.map((item) => item.label)).toEqual(["A.1", "A.2"]);
   });
 
+  test("assigns quick input lines to a copy set", () => {
+    const state = makeState();
+    const { actions } = quickActions(state);
+
+    actions.submitQuickInput({ quickText: "user = lee\n---\npassword = secret", quickGroup: "운영 로그인", quickTitle: "", quickTags: "", targetCardId: "" });
+
+    expect(state.data.cards[0].items.map((item) => item.group || "")).toEqual(["운영 로그인", "", "운영 로그인"]);
+  });
+
   test("adds multiline blocks when quick input uses pattern splitting", () => {
     const data = createEmptyData();
     const card = makeCard({ title: "계정", tabId: "account", description: "", tags: [], items: parseLines("one") });
